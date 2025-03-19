@@ -311,9 +311,6 @@ export default function Page() {
   };
 
   const handleEvaluate = async (rounds: number = 5) => {
-    toast.info(`Evaluating ${rounds} rounds`);
-    return;
-
     if (!currentProject) {
       toast.error("请选择一个主项目");
       return;
