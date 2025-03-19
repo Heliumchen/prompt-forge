@@ -30,7 +30,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Plus, Save, Play, ListTodo } from "lucide-react";
+import { Plus, Save, Play, ListTodo, Braces, Swords } from "lucide-react";
 import { useProjects } from "@/contexts/ProjectContext";
 import { ModelSelect } from "@/components/model-select";
 import { TooltipContent } from "@/components/ui/tooltip";
@@ -38,12 +38,14 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Tooltip } from "@/components/ui/tooltip";
 import { TooltipTrigger } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
+import { ProjectSelect } from "@/components/project-select";
 
 // 定义类型来区分是处理 prompt 还是 message
 type ItemType = 'prompt' | 'message';
 
 export default function Page() {
   const {
+    projects,
     currentProject,
     addPrompt,
     updatePrompt,
@@ -59,6 +61,8 @@ export default function Page() {
   const [generatingMessageId, setGeneratingMessageId] = useState<number | null>(null);
   const [streamingContent, setStreamingContent] = useState<string>('');
   const [streamingMessageId, setStreamingMessageId] = useState<number | null>(null);
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [selectedEvaluationProject, setSelectedEvaluationProject] = useState<string>("");
 
   // 初始化时从currentProject中读取模型设置
   useEffect(() => {
@@ -281,6 +285,145 @@ export default function Page() {
     }
   };
 
+  const handleEvaluate = async (rounds: number = 5) => {
+    if (!currentProject) {
+      alert("请选择一个主项目");
+      return;
+    }
+
+    if (!selectedEvaluationProject) {
+      alert("请选择一个评估项目");
+      return;
+    }
+
+    if (!selectedModel) {
+      alert("请选择一个模型");
+      return;
+    }
+
+    // 从selectedModel中解析provider和model
+    const [provider, model] = selectedModel.split("/");
+    if (!provider || !model) {
+      alert("模型格式错误");
+      return;
+    }
+
+    // 从localStorage获取API key
+    const apiKeysStr = localStorage.getItem('apiKeys');
+    if (!apiKeysStr) {
+      alert(`请在设置中配置 ${provider} 的API密钥`);
+      return;
+    }
+    const apiKeys = JSON.parse(apiKeysStr);
+    const apiKey = apiKeys[provider];
+    if (!apiKey) {
+      alert(`请在设置中配置 ${provider} 的API密钥`);
+      return;
+    }
+
+    // 获取评估项目
+    const evaluationProject = projects.find((p: any) => p.uid === selectedEvaluationProject);
+    
+    if (!evaluationProject) {
+      alert("评估项目不存在");
+      return;
+    }
+
+    setIsEvaluating(true);
+
+    try {
+      // 模拟对话轮次
+      for (let i = 0; i < rounds; i++) {
+        console.log(`开始评估轮次 ${i + 1}/${rounds}`);
+        
+        // 第一步：使用当前项目生成assistant回复
+        const currentProjectMessages = [
+          ...currentProject.prompts.map((p: any) => ({
+            role: p.role,
+            content: p.content
+          })),
+          ...currentProject.messages.map((m: any) => ({
+            role: m.role,
+            content: m.content
+          }))
+        ];
+        
+        // 生成assistant回复
+        const assistantOptions = {
+          model,
+          service: provider.toLowerCase(),
+          apikey: apiKey,
+          dangerouslyAllowBrowser: true,
+        };
+        
+        let assistantContent = '';
+        const assistantLLM = new LLM(currentProjectMessages, assistantOptions);
+        assistantContent = await assistantLLM.send();
+        
+        // 添加assistant回复到当前项目
+        const assistantMessageId = addMessage(currentProject.uid, {
+          role: 'assistant',
+          content: assistantContent
+        });
+        
+        console.log(`生成了assistant回复: ${assistantContent.substring(0, 50)}...`);
+        
+        // 第二步：使用评估项目的提示词，将角色反转后生成user回复
+        // 创建反转角色的消息列表
+        const reversedMessages = [
+          // 首先添加评估项目的system prompt
+          ...evaluationProject.prompts.map((p: any) => ({
+            role: p.role,
+            content: p.content
+          })),
+          // 添加之前的对话历史，但角色反转
+          ...currentProject.messages.map((m: any) => ({
+            // 角色反转：assistant变为user，user变为assistant
+            role: m.role === 'assistant' ? 'user' : (m.role === 'user' ? 'assistant' : m.role),
+            content: m.content
+          })),
+          // 添加刚生成的assistant回复，但作为user输入
+          {
+            role: 'user',
+            content: assistantContent
+          }
+        ];
+
+        console.log('reversedMessages', reversedMessages);
+        
+        // 生成user回复
+        const userOptions = {
+          model,
+          service: provider.toLowerCase(),
+          apikey: apiKey,
+          dangerouslyAllowBrowser: true,
+        };
+        
+        let userContent = '';
+        const userLLM = new LLM(reversedMessages, userOptions);
+        userContent = await userLLM.send();
+        
+        // 添加user回复到当前项目
+        const userMessageId = addMessage(currentProject.uid, {
+          role: 'user',
+          content: userContent
+        });
+        
+        console.log(`生成了user回复: ${userContent.substring(0, 50)}...`);
+        
+        // 等待一小段时间，避免API调用过于频繁
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      
+      alert(`评估完成，共进行了 ${rounds} 轮对话模拟`);
+    } catch (error: any) {
+      console.error("评估错误:", error);
+      alert("评估错误: " + (error.message || "未知错误"));
+    } finally {
+      setIsEvaluating(false);
+    }
+  };
+
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -332,7 +475,7 @@ export default function Page() {
         <div className="flex gap-4 p-4 pt-0">
           <div className="flex flex-col rounded-xl w-1/2 p-4">
             {/* 左侧 Prompt 编辑区 */}
-            <h2 className="mb-4">Prompt Template</h2>
+            <h2 className="mb-4 font-semibold">Prompt Template</h2>
 
             {currentProject ? (
               <>
@@ -356,7 +499,7 @@ export default function Page() {
                   ))}
                 </ul>
                 <Button
-                  className="cursor-pointer mt-4"
+                  className="mt-4"
                   variant="outline"
                   onClick={() => handleAdd('prompt')}
                   disabled={isGenerating}
@@ -374,25 +517,26 @@ export default function Page() {
           </div>
           {/* 右侧 Context+Response 区域 */}
           <div className="flex-1 flex-col rounded-xl p-4">
-            {
+            <h2 className="mb-4 font-semibold">Generations</h2>
+            <div className="flex flex-col gap-4">
+              {
               currentProject?.variables?.length && currentProject.variables.length > 0 ? (
                 <>
                   <div className="flex flex-col gap-4">
-                    <h2 className="mb-4">Variables</h2>
+                    <h2 className="mb-4 font-semibold">Variables</h2>
                     <p>TODO: 识别左侧的variables，用户可以给每个variable填充值</p>
                   </div>
                 </>
               ) : (
-                <div className="flex flex-col items-center justify-center p-8 border border-dashed rounded-lg mb-4">
-                  <p className="text-gray-500">
-                    Prompt Template 中没有 variables
-                  </p>
-                </div>
+                <Alert>
+              <Braces className="h-4 w-4" />
+                <AlertTitle>Variables</AlertTitle>
+                <AlertDescription>
+                You can create a variable in prompt template like this: {'{{variable_name}}'}
+                </AlertDescription>
+              </Alert>
               )
-            }            
-
-            <div className="flex flex-col gap-4">
-              <h2 className="mb-4">Response</h2>
+            }          
               
               {currentProject ? (
               <>
@@ -441,7 +585,7 @@ export default function Page() {
                   onChange={handleModelChange}
                 />
                 <Button
-                  className="cursor-pointer flex-1"
+                  className="flex-1"
                   onClick={() => handleGenerate()}
                   disabled={isGenerating}
                 >
@@ -454,16 +598,27 @@ export default function Page() {
                 </Button>
               </div>
 
-              <Alert>
-              <ListTodo className="h-4 w-4" />
-                <AlertTitle>Todo List</AlertTitle>
-                <AlertDescription>
-                  <ol>
-                    <li>实现draggable list</li>
-                    <li>实现prompt template的variables</li>
-                  </ol>
-                </AlertDescription>
-              </Alert>
+              <Separator className="my-4" />
+              
+              <h2 className="mb-4 font-semibold">Evaluation (LLM-as-a-User)</h2>
+              <div className="flex gap-4">
+                <ProjectSelect 
+                  value={selectedEvaluationProject}
+                  onChange={(value) => setSelectedEvaluationProject(value)}
+                />
+                <Button
+                  className="flex-1"
+                  onClick={() => handleEvaluate(1)}
+                  disabled={isEvaluating}
+                >
+                  {isEvaluating ? (
+                    <div className="animate-spin mr-2">⌛</div>
+                  ) : (
+                    <Swords className="mr-2" />
+                  )}
+                  {isEvaluating ? "Evaluating..." : "Evaluate"}
+                </Button>
+              </div>              
             </div>
           </div>
         </div>

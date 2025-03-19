@@ -11,6 +11,7 @@ import {
   Eye,
   EyeOff,
   KeyRound,
+  ListTodo,
 } from "lucide-react"
 
 import { NavProjects } from "@/components/nav-projects"
@@ -37,6 +38,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
+import { ThemeToggle } from "./theme-toggle"
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert"
 
 const data = {
   user: {
@@ -271,6 +274,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavProjects />
         <div className="mt-auto">
           <ModelSettingsDialog />
+          <ThemeToggle />
+          <Alert>
+              <ListTodo className="h-4 w-4" />
+                <AlertTitle>Todo List</AlertTitle>
+                <AlertDescription>
+                  <ol className="list-decimal list-inside">
+                    <li>支持对抗式聊天</li>
+                    <li>实现draggable list</li>
+                    <li>System Prompt的版本管理</li>
+                    <li>实现prompt template的variables</li>                    
+                    <li>支持Load Testset，方便不同样例的管理</li>
+                    <li>Model select 对每个模型都有一个介绍卡片</li>
+                  </ol>
+                </AlertDescription>
+              </Alert>
         </div>
       </SidebarContent>
     </Sidebar>

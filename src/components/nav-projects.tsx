@@ -10,7 +10,8 @@ import {
   type LucideIcon,
   Frame,
   PieChart,
-  Map
+  Map,
+  FileText
 } from "lucide-react"
 
 import {
@@ -32,7 +33,7 @@ import {
 import { useProjects } from "@/contexts/ProjectContext"
 import { Project } from "@/lib/storage"
 import { useState } from "react"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -112,7 +113,7 @@ export function NavProjects() {
                   onClick={() => handleProjectClick(project.uid)}
                   className={currentProject?.uid === project.uid ? "bg-accent" : ""}
                 >
-                  <IconComponent />
+                  <FileText />
                   <span>{project.name}</span>
                 </SidebarMenuButton>
                 <DropdownMenu>
@@ -180,7 +181,10 @@ export function NavProjects() {
       <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>重命名项目</DialogTitle>
+            <DialogTitle>Rename Project</DialogTitle>
+            <DialogDescription className="hidden">
+              Rename Project
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">

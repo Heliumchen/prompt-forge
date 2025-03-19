@@ -129,13 +129,13 @@ export default function PromptTextarea({
                 onTypeChange?.(newRole);
               }}
             >
-                <SelectTrigger className="w-[120px]">
+                <SelectTrigger className="w-[130px]">
                     <SelectValue placeholder="Theme" />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="system">System</SelectItem>
-                    <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="assistant">Assistant</SelectItem>
+                    <SelectItem value="system">📌 System</SelectItem>
+                    <SelectItem value="user">👤 User</SelectItem>
+                    <SelectItem value="assistant">🤖 Assistant</SelectItem>
                 </SelectContent>
             </Select>
             <div className="flex items-center gap-1 invisible group-hover/item:visible">
