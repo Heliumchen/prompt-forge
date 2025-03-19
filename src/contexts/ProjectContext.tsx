@@ -20,6 +20,8 @@ interface ProjectContextType {
   addMessage: (projectUid: string, data?: Partial<Message>) => number;
   updateMessage: (projectUid: string, messageId: number, data: Partial<Message>) => void;
   deleteMessage: (projectUid: string, messageId: number) => void;
+  clearMessages: (projectUid: string) => void;
+  clearPrompts: (projectUid: string) => void;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -248,6 +250,22 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
     );
   };
 
+  // 清空消息
+  const clearMessages = (projectUid: string) => {   
+    // 同步更新 currentProject
+    if (currentProject?.uid === projectUid) {
+      setCurrentProject(prev => prev ? {...prev, messages: []} : null);
+    }
+  };
+
+  // 清空提示
+  const clearPrompts = (projectUid: string) => {    
+    // 同步更新 currentProject
+    if (currentProject?.uid === projectUid) {
+      setCurrentProject(prev => prev ? {...prev, prompts: []} : null);
+    }
+  };
+
   const value = {
     projects,
     currentProject,
@@ -258,9 +276,11 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
     addPrompt,
     updatePrompt,
     deletePrompt,
+    clearPrompts,
     addMessage,
     updateMessage,
-    deleteMessage
+    deleteMessage,
+    clearMessages
   };
 
   return (

@@ -279,13 +279,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <ListTodo className="h-4 w-4" />
                 <AlertTitle>Todo List</AlertTitle>
                 <AlertDescription>
-                  <ol className="list-decimal list-inside">
-                    <li>支持对抗式聊天</li>
-                    <li>实现draggable list</li>
-                    <li>System Prompt的版本管理</li>
-                    <li>实现prompt template的variables</li>                    
-                    <li>支持Load Testset，方便不同样例的管理</li>
-                    <li>Model select 对每个模型都有一个介绍卡片</li>
+                  <ol>
+                    <li>P0: 对模型参数进行调整</li>
+                    <li>P0: 部署到Vercel</li>
+                    <li>P0: Push到Github，并加上Github的跳转按钮</li>
+                    <li>P1: 实现draggable list</li>
+                    <li>P1: System Prompt的版本管理</li>
+                    <li>P1: 实现prompt template的variables</li>                    
+                    <li>P1: 支持Load Testset，方便不同样例的管理</li>
+                    <li>P2: Model select 对每个模型都有一个介绍卡片</li>
                   </ol>
                 </AlertDescription>
               </Alert>

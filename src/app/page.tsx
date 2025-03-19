@@ -30,7 +30,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Plus, Save, Play, ListTodo, Braces, Swords } from "lucide-react";
+import { Plus, Save, Play, Braces, Swords, MessageCircleOff } from "lucide-react";
 import { useProjects } from "@/contexts/ProjectContext";
 import { ModelSelect } from "@/components/model-select";
 import { TooltipContent } from "@/components/ui/tooltip";
@@ -39,6 +39,8 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { TooltipTrigger } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
 import { ProjectSelect } from "@/components/project-select";
+import { toast } from "sonner"
+
 
 // 定义类型来区分是处理 prompt 还是 message
 type ItemType = 'prompt' | 'message';
@@ -50,9 +52,11 @@ export default function Page() {
     addPrompt,
     updatePrompt,
     deletePrompt,
+    clearPrompts,
     addMessage,
     updateMessage,
     deleteMessage,
+    clearMessages,
     updateProject,
   } = useProjects();
 
@@ -63,6 +67,9 @@ export default function Page() {
   const [streamingMessageId, setStreamingMessageId] = useState<number | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [selectedEvaluationProject, setSelectedEvaluationProject] = useState<string>("");
+  const [evaluatingRound, setEvaluatingRound] = useState<number>(0);
+  const [evaluatingTotal, setEvaluatingTotal] = useState<number>(0);
+  const [selectedEvaluationRound, setSelectedEvaluationRound] = useState<number>(5);
 
   // 初始化时从currentProject中读取模型设置
   useEffect(() => {
@@ -96,6 +103,18 @@ export default function Page() {
     }
   };
 
+  const handleClearAll = (type: ItemType) => {
+    if (currentProject) {
+      if (type === 'prompt') {
+        clearPrompts(currentProject.uid);
+        toast.success("Prompt templates clear");
+      } else {
+        clearMessages(currentProject.uid);
+        toast.success("Messages clear");
+      }
+    }
+  };
+  
   // 通用的值更新函数
   const handleValueChange = (value: string, id: number, type: ItemType) => {
     if (currentProject) {
@@ -146,32 +165,32 @@ export default function Page() {
 
   const handleGenerate = async (messageId?: number) => {
     if (!currentProject) {
-      alert("请选择一个项目");
+      toast.error("请选择一个项目");
       return;
     }
 
     if (!selectedModel) {
-      alert("请选择一个模型");
+      toast.error("请选择一个模型");
       return;
     }
 
     // 从selectedModel中解析provider和model
     const [provider, model] = selectedModel.split("/");
     if (!provider || !model) {
-      alert("模型格式错误");
+      toast.error("模型格式错误");
       return;
     }
 
     // 从localStorage获取API key
     const apiKeysStr = localStorage.getItem('apiKeys');
     if (!apiKeysStr) {
-      alert(`请在设置中配置 ${provider} 的API密钥`);
+      toast.error(`请在设置中配置 ${provider} 的API密钥`);
       return;
     }
     const apiKeys = JSON.parse(apiKeysStr);
     const apiKey = apiKeys[provider];
     if (!apiKey) {
-      alert(`请在设置中配置 ${provider} 的API密钥`);
+      toast.error(`请在设置中配置 ${provider} 的API密钥`);
       return;
     }
 
@@ -218,7 +237,7 @@ export default function Page() {
     }
 
     if (messages.length === 0) {
-      alert("请至少添加一条提示");
+      toast.error("请至少添加一条提示");
       return;
     }
 
@@ -276,9 +295,15 @@ export default function Page() {
         setStreamingMessageId(null);
         setStreamingContent('');
       }, 100);
+
+      // 添加一个用户消息，方便用户接话
+      addMessage(currentProject.uid, {
+        role: 'user',
+        content: ''
+      });
     } catch (error: any) {
       console.error("生成错误:", error);
-      alert("生成错误: " + (error.message || "未知错误"));
+      toast.error("生成错误: " + (error.message || "未知错误"));
     } finally {
       setIsGenerating(false);
       setGeneratingMessageId(null);
@@ -286,38 +311,41 @@ export default function Page() {
   };
 
   const handleEvaluate = async (rounds: number = 5) => {
+    toast.info(`Evaluating ${rounds} rounds`);
+    return;
+
     if (!currentProject) {
-      alert("请选择一个主项目");
+      toast.error("请选择一个主项目");
       return;
     }
 
     if (!selectedEvaluationProject) {
-      alert("请选择一个评估项目");
+      toast.error("请选择一个评估项目");
       return;
     }
 
     if (!selectedModel) {
-      alert("请选择一个模型");
+      toast.error("请选择一个模型");
       return;
     }
 
     // 从selectedModel中解析provider和model
     const [provider, model] = selectedModel.split("/");
     if (!provider || !model) {
-      alert("模型格式错误");
+      toast.error("模型格式错误");
       return;
     }
 
     // 从localStorage获取API key
     const apiKeysStr = localStorage.getItem('apiKeys');
     if (!apiKeysStr) {
-      alert(`请在设置中配置 ${provider} 的API密钥`);
+      toast.error(`请在设置中配置 ${provider} 的API密钥`);
       return;
     }
     const apiKeys = JSON.parse(apiKeysStr);
     const apiKey = apiKeys[provider];
     if (!apiKey) {
-      alert(`请在设置中配置 ${provider} 的API密钥`);
+      toast.error(`请在设置中配置 ${provider} 的API密钥`);
       return;
     }
 
@@ -325,102 +353,170 @@ export default function Page() {
     const evaluationProject = projects.find((p: any) => p.uid === selectedEvaluationProject);
     
     if (!evaluationProject) {
-      alert("评估项目不存在");
+      toast.error("评估项目不存在");
       return;
     }
 
     setIsEvaluating(true);
+    setEvaluatingTotal(rounds);
 
     try {
+      // 创建一个本地变量来跟踪所有生成的消息
+      let localMessages = [...currentProject.messages];
+      
       // 模拟对话轮次
       for (let i = 0; i < rounds; i++) {
+        setEvaluatingRound(i + 1);
         console.log(`开始评估轮次 ${i + 1}/${rounds}`);
         
-        // 第一步：使用当前项目生成assistant回复
-        const currentProjectMessages = [
-          ...currentProject.prompts.map((p: any) => ({
-            role: p.role,
-            content: p.content
-          })),
-          ...currentProject.messages.map((m: any) => ({
-            role: m.role,
-            content: m.content
-          }))
-        ];
-        
-        // 生成assistant回复
-        const assistantOptions = {
-          model,
-          service: provider.toLowerCase(),
-          apikey: apiKey,
-          dangerouslyAllowBrowser: true,
-        };
-        
-        let assistantContent = '';
-        const assistantLLM = new LLM(currentProjectMessages, assistantOptions);
-        assistantContent = await assistantLLM.send();
-        
-        // 添加assistant回复到当前项目
-        const assistantMessageId = addMessage(currentProject.uid, {
-          role: 'assistant',
-          content: assistantContent
-        });
-        
-        console.log(`生成了assistant回复: ${assistantContent.substring(0, 50)}...`);
-        
-        // 第二步：使用评估项目的提示词，将角色反转后生成user回复
-        // 创建反转角色的消息列表
-        const reversedMessages = [
-          // 首先添加评估项目的system prompt
-          ...evaluationProject.prompts.map((p: any) => ({
-            role: p.role,
-            content: p.content
-          })),
-          // 添加之前的对话历史，但角色反转
-          ...currentProject.messages.map((m: any) => ({
-            // 角色反转：assistant变为user，user变为assistant
-            role: m.role === 'assistant' ? 'user' : (m.role === 'user' ? 'assistant' : m.role),
-            content: m.content
-          })),
-          // 添加刚生成的assistant回复，但作为user输入
-          {
-            role: 'user',
-            content: assistantContent
+        try {
+          // 使用本地跟踪的消息
+          const currentProjectMessages = [
+            ...currentProject.prompts.map((p: any) => ({
+              role: p.role,
+              content: p.content
+            })),
+            ...localMessages.map((m: any) => ({
+              role: m.role,
+              content: m.content
+            }))
+          ];
+          
+          // 生成assistant回复（流式）
+          const assistantOptions = {
+            model,
+            service: provider.toLowerCase(),
+            apikey: apiKey,
+            dangerouslyAllowBrowser: true,
+            stream: true,
+          };
+          
+          // 创建新的assistant消息
+          const assistantMessageId = addMessage(currentProject.uid, {
+            role: 'assistant',
+            content: ''
+          });
+          
+          // 设置流式输出的目标消息
+          setStreamingMessageId(assistantMessageId);
+          
+          let assistantContent = '';
+          const assistantLLM = new LLM(currentProjectMessages, assistantOptions);
+          const assistantStream = await assistantLLM.send();
+          
+          // 处理流式输出
+          for await (const chunk of assistantStream) {
+            assistantContent += chunk;
+            // 更新本地状态以驱动UI更新
+            setStreamingContent(assistantContent);
+            
+            // 同时更新项目数据
+            updateMessage(currentProject.uid, assistantMessageId, {
+              content: assistantContent
+            });
           }
-        ];
-
-        console.log('reversedMessages', reversedMessages);
-        
-        // 生成user回复
-        const userOptions = {
-          model,
-          service: provider.toLowerCase(),
-          apikey: apiKey,
-          dangerouslyAllowBrowser: true,
-        };
-        
-        let userContent = '';
-        const userLLM = new LLM(reversedMessages, userOptions);
-        userContent = await userLLM.send();
-        
-        // 添加user回复到当前项目
-        const userMessageId = addMessage(currentProject.uid, {
-          role: 'user',
-          content: userContent
-        });
-        
-        console.log(`生成了user回复: ${userContent.substring(0, 50)}...`);
-        
-        // 等待一小段时间，避免API调用过于频繁
-        await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // 重置流式状态但给用户一点时间查看结果
+          await new Promise(resolve => setTimeout(resolve, 500));
+          setStreamingMessageId(null);
+          setStreamingContent('');
+          
+          // 添加新生成的消息到本地消息列表
+          const assistantMessage = {
+            id: Date.now(), // 临时ID
+            role: "assistant" as "assistant",
+            content: assistantContent
+          };
+          localMessages.push(assistantMessage);
+          
+          // 构建反转消息，使用本地消息列表
+          const reversedMessages = [
+            // 首先添加评估项目的system prompt
+            ...evaluationProject.prompts.map((p: any) => ({
+              role: p.role,
+              content: p.content
+            })),
+            // 添加本地消息历史，但角色反转
+            ...localMessages.map((m: any) => ({
+              role: m.role === 'assistant' ? 'user' : (m.role === 'user' ? 'assistant' : m.role),
+              content: m.content
+            }))
+            // 注意：不需要再添加assistantContent，因为它已经包含在localMessages中
+          ];
+          
+          console.log('Round ' + (i+1) + ' reversedMessages:', reversedMessages);
+          
+          // 生成user回复（流式）
+          const userOptions = {
+            model,
+            service: provider.toLowerCase(),
+            apikey: apiKey,
+            dangerouslyAllowBrowser: true,
+            stream: true,
+          };
+          
+          // 创建新的user消息
+          const userMessageId = addMessage(currentProject.uid, {
+            role: 'user',
+            content: ''
+          });
+          
+          // 设置流式输出的目标消息
+          setStreamingMessageId(userMessageId);
+          
+          let userContent = '';
+          const userLLM = new LLM(reversedMessages, userOptions);
+          const userStream = await userLLM.send();
+          
+          // 处理流式输出
+          for await (const chunk of userStream) {
+            userContent += chunk;
+            // 更新本地状态以驱动UI更新
+            setStreamingContent(userContent);
+            
+            // 同时更新项目数据
+            updateMessage(currentProject.uid, userMessageId, {
+              content: userContent
+            });
+          }
+          
+          // 重置流式状态但给用户一点时间查看结果
+          await new Promise(resolve => setTimeout(resolve, 500));
+          setStreamingMessageId(null);
+          setStreamingContent('');
+          
+          // 添加新生成的user消息到本地消息列表
+          const userMessage = {
+            id: Date.now() + 1, // 临时ID
+            role: "user" as "user",
+            content: userContent
+          };
+          localMessages.push(userMessage);
+          
+        } catch (roundError: any) {
+          console.error(`轮次 ${i+1} 评估错误:`, roundError);
+          // 显示错误但继续下一轮
+          toast.error(`轮次 ${i+1} 评估错误: ${roundError.message || "未知错误"}`);
+          
+          // 重置流式状态
+          setStreamingMessageId(null);
+          setStreamingContent('');
+          
+          // 继续下一轮
+          continue;
+        }
       }
       
-      alert(`评估完成，共进行了 ${rounds} 轮对话模拟`);
+      toast.success(`评估完成，共进行了 ${rounds} 轮对话模拟`);
     } catch (error: any) {
       console.error("评估错误:", error);
-      alert("评估错误: " + (error.message || "未知错误"));
+      toast.error("评估错误: " + (error.message || "未知错误"));
     } finally {
       setIsEvaluating(false);
+      setEvaluatingRound(0);
+      setEvaluatingTotal(0);
+      setStreamingMessageId(null);
+      setStreamingContent('');
     }
   };
 
@@ -448,7 +544,7 @@ export default function Page() {
             </Breadcrumb>
           </div>
           <div className="flex items-center gap-2 px-4">
-            <Select>
+            {/* <Select>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Select a version" defaultValue="3" />
               </SelectTrigger>
@@ -469,7 +565,7 @@ export default function Page() {
                 </TooltipTrigger>
                 <TooltipContent>Save new version</TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider> */}
           </div>
         </header>
         <div className="flex gap-4 p-4 pt-0">
@@ -562,14 +658,25 @@ export default function Page() {
                     </li>
                   ))}
                 </ul>
-                <Button
-                  className="cursor-pointer"
-                  variant="outline"
-                  onClick={() => handleAdd('message')}
-                  disabled={isGenerating}
-                >
-                  <Plus /> Add
-                </Button>
+                <div className="flex gap-4">                
+                  <Button
+                    className="flex-1"
+                    variant="outline"
+                    onClick={() => handleAdd('message')}
+                    disabled={isGenerating}
+                  >
+                    <Plus /> Add
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    onClick={() => handleClearAll('message')}
+                    disabled={isGenerating}
+                  >
+                    <MessageCircleOff />
+                  </Button>
+                </div>
+                
               </>
               ) : (
                 <div className="flex flex-col items-center justify-center p-8 border border-dashed rounded-lg">
@@ -606,13 +713,33 @@ export default function Page() {
                   value={selectedEvaluationProject}
                   onChange={(value) => setSelectedEvaluationProject(value)}
                 />
+                <Select defaultValue="5" onValueChange={(value) => setSelectedEvaluationRound(parseInt(value))}>
+                  <SelectTrigger className="w-[80px]">
+                    <SelectValue placeholder="Rounds" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1</SelectItem>
+                    <SelectItem value="2">2</SelectItem>
+                    <SelectItem value="3">3</SelectItem>
+                    <SelectItem value="4">4</SelectItem>
+                    <SelectItem value="5">5</SelectItem>
+                    <SelectItem value="6">6</SelectItem>
+                    <SelectItem value="7">7</SelectItem>
+                    <SelectItem value="8">8</SelectItem>
+                    <SelectItem value="9">9</SelectItem>
+                    <SelectItem value="10">10</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button
                   className="flex-1"
-                  onClick={() => handleEvaluate(1)}
+                  onClick={() => handleEvaluate(selectedEvaluationRound)}
                   disabled={isEvaluating}
                 >
                   {isEvaluating ? (
-                    <div className="animate-spin mr-2">⌛</div>
+                    <>
+                      <div className="animate-spin mr-2">⌛</div>
+                      {evaluatingRound}/{evaluatingTotal}
+                    </>
                   ) : (
                     <Swords className="mr-2" />
                   )}
