@@ -7,7 +7,6 @@ import PromptTextarea from "@/components/prompt-textarea";
 import {
   Breadcrumb,
   BreadcrumbItem,
-  BreadcrumbLink,
   BreadcrumbList,
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
@@ -22,7 +21,6 @@ import {
   SelectContent,
   SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -57,8 +55,10 @@ export default function Page() {
   } = useProjects();
 
   const [selectedModel, setSelectedModel] = useState<string>("");
-  const [response, setResponse] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingMessageId, setGeneratingMessageId] = useState<number | null>(null);
+  const [streamingContent, setStreamingContent] = useState<string>('');
+  const [streamingMessageId, setStreamingMessageId] = useState<number | null>(null);
 
   // 初始化时从currentProject中读取模型设置
   useEffect(() => {
@@ -140,7 +140,7 @@ export default function Page() {
     }
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (messageId?: number) => {
     if (!currentProject) {
       alert("请选择一个项目");
       return;
@@ -171,18 +171,47 @@ export default function Page() {
       return;
     }
 
-    // 组装消息，先添加prompts，再添加messages
-    const messages = [
-      ...currentProject.prompts.map(p => ({
-        role: p.role,
-        content: p.content
-      })),
-      ...currentProject.messages.map(m => ({
-        role: m.role,
-        content: m.content
-      }))
-    ];
-    console.log('messages=', messages);
+    // 如果指定了messageId，则只使用该message之前的所有消息
+    let messages;
+    
+    if (messageId !== undefined) {
+      // 获取当前project中所有messages，按显示顺序排列
+      const allMessages = [...currentProject.messages];
+      
+      // 找到当前messageId在messages数组中的索引
+      const messageIndex = allMessages.findIndex(m => m.id === messageId);
+      
+      if (messageIndex === -1) {
+        console.error(`Message with id ${messageId} not found`);
+        return;
+      }
+      
+      // 组装消息，先添加所有prompts，再添加当前message之前的messages
+      messages = [
+        ...currentProject.prompts.map(p => ({
+          role: p.role,
+          content: p.content
+        })),
+        ...allMessages.slice(0, messageIndex).map(m => ({
+          role: m.role,
+          content: m.content
+        }))
+      ];
+      
+      console.log(`Regenerating message ${messageId}, using ${messages.length} previous messages`);
+    } else {
+      // 如果没有指定messageId，使用所有消息
+      messages = [
+        ...currentProject.prompts.map(p => ({
+          role: p.role,
+          content: p.content
+        })),
+        ...currentProject.messages.map(m => ({
+          role: m.role,
+          content: m.content
+        }))
+      ];
+    }
 
     if (messages.length === 0) {
       alert("请至少添加一条提示");
@@ -190,32 +219,65 @@ export default function Page() {
     }
 
     setIsGenerating(true);
+    setGeneratingMessageId(messageId || null);
+    
     try {
       const options = {
         model,
         service: provider.toLowerCase(),
         apikey: apiKey,
         dangerouslyAllowBrowser: true,
+        stream: true, // 启用流式输出
       };
 
-      const llm = new LLM(messages, options);
-      const response = await llm.send();
-
-      console.log('response=', response);
-      setResponse(response);
+      let generatedText = '';
+      let newMessageId: number | undefined;
       
-      // 添加新的 assistant 消息
-      if (response && currentProject) {
-        addMessage(currentProject.uid, {
+      // 如果是重新生成，使用现有ID，否则创建新消息
+      if (messageId !== undefined) {
+        newMessageId = messageId;
+        // 先清空现有消息内容
+        updateMessage(currentProject.uid, messageId, { content: '' });
+      } else {
+        // 创建新的assistant消息
+        newMessageId = addMessage(currentProject.uid, {
           role: 'assistant',
-          content: response
+          content: ''
         });
       }
+
+      const llm = new LLM(messages, options);
+      const stream = await llm.send();
+      
+      // 处理流式输出
+      for await (const chunk of stream) {
+        generatedText += chunk;
+        // 更新本地状态以驱动UI更新
+        setStreamingContent(generatedText);
+        
+        // 同时更新项目数据
+        if (newMessageId !== undefined) {
+          updateMessage(currentProject.uid, newMessageId, {
+            content: generatedText
+          });
+        }
+      }
+      
+      // 确保最终内容被设置
+      setStreamingContent(generatedText);
+
+      // 在完全处理完后再重置流式状态
+      // 可以添加一个小延迟确保状态已更新
+      setTimeout(() => {
+        setStreamingMessageId(null);
+        setStreamingContent('');
+      }, 100);
     } catch (error: any) {
       console.error("生成错误:", error);
       alert("生成错误: " + (error.message || "未知错误"));
     } finally {
       setIsGenerating(false);
+      setGeneratingMessageId(null);
     }
   };
 
@@ -288,6 +350,7 @@ export default function Page() {
                           }
                           onCopy={() => handleCopy(prompt.id, 'prompt')}
                           onDelete={() => handleDelete(prompt.id, 'prompt')}
+                          isGenerating={isGenerating}
                         />
                     </li>
                   ))}
@@ -296,6 +359,7 @@ export default function Page() {
                   className="cursor-pointer mt-4"
                   variant="outline"
                   onClick={() => handleAdd('prompt')}
+                  disabled={isGenerating}
                 >
                   <Plus />
                 </Button>
@@ -338,6 +402,8 @@ export default function Page() {
                         <PromptTextarea
                           role={message.role}
                           content={message.content}
+                          isStreaming={streamingMessageId === message.id}
+                          streamingContent={streamingMessageId === message.id ? streamingContent : undefined}
                           onChange={(content) =>
                             handleValueChange(content, message.id, 'message')
                           }
@@ -346,6 +412,8 @@ export default function Page() {
                           }
                           onCopy={() => handleCopy(message.id, 'message')}
                           onDelete={() => handleDelete(message.id, 'message')}
+                          onRegenerate={message.role === 'assistant' ? () => handleGenerate(message.id) : undefined}
+                          isGenerating={isGenerating && (generatingMessageId === message.id || generatingMessageId === null)}
                         />
                     </li>
                   ))}
@@ -354,6 +422,7 @@ export default function Page() {
                   className="cursor-pointer"
                   variant="outline"
                   onClick={() => handleAdd('message')}
+                  disabled={isGenerating}
                 >
                   <Plus /> Add
                 </Button>
@@ -373,7 +442,7 @@ export default function Page() {
                 />
                 <Button
                   className="cursor-pointer flex-1"
-                  onClick={handleGenerate}
+                  onClick={() => handleGenerate()}
                   disabled={isGenerating}
                 >
                   {isGenerating ? (

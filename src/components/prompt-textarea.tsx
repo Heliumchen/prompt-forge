@@ -16,7 +16,7 @@ import {
   } from "@/components/ui/tooltip"
   
 import { Button } from '@/components/ui/button'
-import { Copy, Delete } from 'lucide-react'
+import { Copy, Delete, RefreshCw } from 'lucide-react'
 
 // TODO: 编辑器考虑支持markdown https://www.blocknotejs.org/
 
@@ -25,6 +25,8 @@ export interface PromptTextareaProps {
   onTypeChange?: (role: 'system' | 'user' | 'assistant') => void
   onDelete?: () => void
   onCopy?: () => void
+  onRegenerate?: () => void
+  isGenerating?: boolean
   placeholder?: string
   content?: string
   onChange?: (content: string) => void
@@ -35,10 +37,14 @@ export default function PromptTextarea({
   onTypeChange,
   onDelete,
   onCopy,
+  onRegenerate,
+  isGenerating = false,
   placeholder,
   content = '',
-  onChange
-}: PromptTextareaProps) {
+  onChange,
+  isStreaming = false,
+  streamingContent = ''
+}: PromptTextareaProps & { isStreaming?: boolean, streamingContent?: string }) {
   const [textValue, setTextValue] = useState(content)
   const [currentRole, setCurrentRole] = useState<'system' | 'user' | 'assistant'>(role)
   const [currentPlaceholder, setCurrentPlaceholder] = useState(
@@ -56,6 +62,18 @@ export default function PromptTextarea({
       setCurrentPlaceholder(`${currentRole} Prompt`)
     }
   }, [currentRole, placeholder])
+  
+  // 当外部content变化时更新内部状态
+  useEffect(() => {
+    setTextValue(content)
+  }, [content])
+  
+  // 当正在流式生成时，使用streamingContent值
+  useEffect(() => {
+    if (isStreaming && streamingContent !== undefined) {
+      setTextValue(streamingContent)
+    }
+  }, [isStreaming, streamingContent])
   
   // 添加自动调整高度的功能
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -95,11 +113,16 @@ export default function PromptTextarea({
     onDelete?.()
   }
 
+  const handleRegenerate = () => {
+    onRegenerate?.()
+  }
+
   return (
-    <div className="w-full group/item border rounded-md mb-2">
+    <div className={`w-full group/item border rounded-md mb-2 ${isGenerating ? 'opacity-70' : ''}`}>
         <div className="flex w-full justify-between p-2">
             <Select 
-              value={currentRole.toLowerCase()} 
+              value={currentRole.toLowerCase()}
+              disabled={isGenerating}
               onValueChange={(value) => {
                 const newRole = value as 'system' | 'user' | 'assistant';
                 setCurrentRole(newRole);
@@ -116,10 +139,34 @@ export default function PromptTextarea({
                 </SelectContent>
             </Select>
             <div className="flex items-center gap-1 invisible group-hover/item:visible">
+                {currentRole === 'assistant' && onRegenerate && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          onClick={handleRegenerate}
+                          disabled={isGenerating}
+                        >
+                          <RefreshCw className={`h-4 w-4 ${isGenerating ? 'animate-spin' : ''}`} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {isGenerating ? 'Generating...' : 'Regenerate'}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button variant="outline" size="icon" onClick={handleCopy}>
+                            <Button 
+                              variant="outline" 
+                              size="icon" 
+                              onClick={handleCopy}
+                              disabled={isGenerating}
+                            >
                                 <Copy />
                             </Button>
                         </TooltipTrigger>
@@ -131,7 +178,12 @@ export default function PromptTextarea({
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button variant="outline" size="icon" onClick={handleDelete}>
+                            <Button 
+                              variant="outline" 
+                              size="icon" 
+                              onClick={handleDelete}
+                              disabled={isGenerating}
+                            >
                                 <Delete />
                             </Button>
                         </TooltipTrigger>
@@ -148,6 +200,7 @@ export default function PromptTextarea({
           placeholder={currentPlaceholder}
           value={textValue}
           onChange={handleChange}
+          disabled={isGenerating}
         ></textarea>
     </div>
   )

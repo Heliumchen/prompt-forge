@@ -30,6 +30,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { useProjects } from "@/contexts/ProjectContext"
+import { Project } from "@/lib/storage"
 import { useState } from "react"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -47,15 +48,38 @@ const iconMap: Record<string, LucideIcon> = {
 
 export function NavProjects() {
   const { isMobile } = useSidebar()
-  const { projects, currentProject, setCurrentProject, addProject, deleteProject } = useProjects()
+  const { projects, currentProject, setCurrentProject, addProject, deleteProject, updateProject } = useProjects()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [newProjectName, setNewProjectName] = useState('')
   const [newProjectIcon, setNewProjectIcon] = useState('Frame')
+  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false)
+  const [projectToRename, setProjectToRename] = useState<Project | null>(null)
+  const [renameProjectName, setRenameProjectName] = useState('')
 
   const handleProjectClick = (projectUid: string) => {
     const project = projects.find(p => p.uid === projectUid)
     if (project) {
       setCurrentProject(project)
+    }
+  }
+
+  const openRenameDialog = (projectUid: string) => {
+    const project = projects.find(p => p.uid === projectUid);
+    if (project) {
+      setProjectToRename(project);
+      setRenameProjectName(project.name);
+      setIsRenameDialogOpen(true);
+    }
+  }
+
+  const submitRenameProject = () => {
+    if (projectToRename && renameProjectName.trim()) {
+      const updatedProject = {
+        ...projectToRename,
+        name: renameProjectName.trim()
+      };
+      updateProject(updatedProject);
+      setIsRenameDialogOpen(false);
     }
   }
 
@@ -103,7 +127,7 @@ export function NavProjects() {
                     side={isMobile ? "bottom" : "right"}
                     align={isMobile ? "end" : "start"}
                   >
-                    <DropdownMenuItem onClick={() => handleProjectClick(project.uid)}>
+                    <DropdownMenuItem onClick={() => openRenameDialog(project.uid)}>
                       <FolderPen className="text-muted-foreground" />
                       <span>Rename</span>
                     </DropdownMenuItem>
@@ -149,6 +173,29 @@ export function NavProjects() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>取消</Button>
             <Button onClick={handleAddProject}>创建</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>重命名项目</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="rename-name">项目名称</Label>
+              <Input 
+                id="rename-name" 
+                value={renameProjectName} 
+                onChange={(e) => setRenameProjectName(e.target.value)} 
+                placeholder="输入新的项目名称" 
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRenameDialogOpen(false)}>取消</Button>
+            <Button onClick={submitRenameProject}>重命名</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

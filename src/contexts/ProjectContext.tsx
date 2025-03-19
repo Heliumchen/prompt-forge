@@ -17,7 +17,7 @@ interface ProjectContextType {
   // addVariable: (projectUid: string) => void;
   // updateVariable: (projectUid: string, variableId: number, data: Partial<Variable>) => void;
   // deleteVariable: (projectUid: string, variableId: number) => void;
-  addMessage: (projectUid: string, data?: Partial<Message>) => void;
+  addMessage: (projectUid: string, data?: Partial<Message>) => number;
   updateMessage: (projectUid: string, messageId: number, data: Partial<Message>) => void;
   deleteMessage: (projectUid: string, messageId: number) => void;
 }
@@ -164,13 +164,17 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
   };
 
   // 添加消息
-  const addMessage = (projectUid: string, data?: Partial<Message>) => {
+  const addMessage = (projectUid: string, data?: Partial<Message>): number => {
+    let newMessageId = 0;
+    
     setProjects(prev => 
       prev.map(project => {
         if (project.uid === projectUid) {
           const newId = project.messages?.length > 0 
             ? Math.max(...project.messages.map(m => m.id)) + 1 
             : 1;
+          
+          newMessageId = newId;
           
           const newMessage: Message = {
             id: newId, 
@@ -192,6 +196,8 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
         return project;
       })
     );
+    
+    return newMessageId;
   };
 
   // 更新消息
