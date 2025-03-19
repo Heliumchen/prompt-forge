@@ -21,41 +21,41 @@ import { Copy, Delete } from 'lucide-react'
 // TODO: 编辑器考虑支持markdown https://www.blocknotejs.org/
 
 export interface PromptTextareaProps {
-  type?: 'system' | 'user' | 'assistant'
-  onTypeChange?: (type: 'system' | 'user' | 'assistant') => void
+  role?: 'system' | 'user' | 'assistant'
+  onTypeChange?: (role: 'system' | 'user' | 'assistant') => void
   onDelete?: () => void
   onCopy?: () => void
   placeholder?: string
-  value?: string
-  onChange?: (value: string) => void
+  content?: string
+  onChange?: (content: string) => void
 }
 
 export default function PromptTextarea({
-  type = 'system',
+  role = 'system',
   onTypeChange,
   onDelete,
   onCopy,
   placeholder,
-  value = '',
+  content = '',
   onChange
 }: PromptTextareaProps) {
-  const [textValue, setTextValue] = useState(value)
-  const [currentType, setCurrentType] = useState<'system' | 'user' | 'assistant'>(type)
+  const [textValue, setTextValue] = useState(content)
+  const [currentRole, setCurrentRole] = useState<'system' | 'user' | 'assistant'>(role)
   const [currentPlaceholder, setCurrentPlaceholder] = useState(
-    placeholder || `${type} Prompt`
+    placeholder || `${role} Prompt`
   )
   
   // 当外部type变化时更新内部状态
   useEffect(() => {
-    setCurrentType(type)
-  }, [type])
+    setCurrentRole(role)
+  }, [role])
   
   // 当type变化时，如果没有自定义placeholder，则更新placeholder
   useEffect(() => {
     if (!placeholder) {
-      setCurrentPlaceholder(`${currentType} Prompt`)
+      setCurrentPlaceholder(`${currentRole} Prompt`)
     }
-  }, [currentType, placeholder])
+  }, [currentRole, placeholder])
   
   // 添加自动调整高度的功能
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -81,9 +81,9 @@ export default function PromptTextarea({
   }
   
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newType = e.target.value as 'system' | 'user' | 'assistant'
-    setCurrentType(newType)
-    onTypeChange?.(newType)
+    const newRole = e.target.value as 'system' | 'user' | 'assistant'
+    setCurrentRole(newRole)
+    onTypeChange?.(newRole)
   }
   
   const handleCopy = () => {
@@ -99,11 +99,11 @@ export default function PromptTextarea({
     <div className="w-full group/item border rounded-md mb-2">
         <div className="flex w-full justify-between p-2">
             <Select 
-              value={currentType.toLowerCase()} 
+              value={currentRole.toLowerCase()} 
               onValueChange={(value) => {
-                const newType = value as 'system' | 'user' | 'assistant';
-                setCurrentType(newType);
-                onTypeChange?.(newType);
+                const newRole = value as 'system' | 'user' | 'assistant';
+                setCurrentRole(newRole);
+                onTypeChange?.(newRole);
               }}
             >
                 <SelectTrigger className="w-[120px]">

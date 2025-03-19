@@ -13,6 +13,11 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert"
+import {
   Select,
   SelectContent,
   SelectGroup,
@@ -27,7 +32,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Plus, Save, Play } from "lucide-react";
+import { Plus, Save, Play, ListTodo } from "lucide-react";
 import { useProjects } from "@/contexts/ProjectContext";
 import { ModelSelect } from "@/components/model-select";
 import { TooltipContent } from "@/components/ui/tooltip";
@@ -36,13 +41,18 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { TooltipTrigger } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
 
+// 定义类型来区分是处理 prompt 还是 message
+type ItemType = 'prompt' | 'message';
+
 export default function Page() {
   const {
     currentProject,
     addPrompt,
     updatePrompt,
     deletePrompt,
-    restorePrompt,
+    addMessage,
+    updateMessage,
+    deleteMessage,
     updateProject,
   } = useProjects();
 
@@ -71,45 +81,62 @@ export default function Page() {
     }
   };
 
-  const handleValueChange = (value: string, id: number) => {
+  // 通用的添加函数
+  const handleAdd = (type: ItemType) => {
     if (currentProject) {
-      updatePrompt(currentProject.uid, id, { value });
+      if (type === 'prompt') {
+        addPrompt(currentProject.uid);
+      } else {
+        addMessage(currentProject.uid);
+      }
     }
   };
 
+  // 通用的值更新函数
+  const handleValueChange = (value: string, id: number, type: ItemType) => {
+    if (currentProject) {
+      if (type === 'prompt') {
+        updatePrompt(currentProject.uid, id, { content: value });
+      } else {
+        updateMessage(currentProject.uid, id, { content: value });
+      }
+    }
+  };
+
+  // 通用的类型更新函数
   const handleTypeChange = (
-    type: "system" | "user" | "assistant",
-    id: number
+    roleType: "system" | "user" | "assistant",
+    id: number,
+    type: ItemType
   ) => {
     if (currentProject) {
-      updatePrompt(currentProject.uid, id, { type });
+      if (type === 'prompt') {
+        updatePrompt(currentProject.uid, id, { role: roleType });
+      } else {
+        updateMessage(currentProject.uid, id, { role: roleType });
+      }
     }
   };
 
-  const handleCopy = (id: number) => {
-    const prompt = currentProject?.prompts.find((p) => p.id === id);
-    if (prompt) {
-      navigator.clipboard.writeText(prompt.value);
-      console.log(`Prompt ${id} copied to clipboard`);
+  // 通用的复制函数
+  const handleCopy = (id: number, type: ItemType) => {
+    const items = type === 'prompt' ? currentProject?.prompts : currentProject?.messages;
+    const item = items?.find((item) => item.id === id);
+    if (item) {
+      navigator.clipboard.writeText(item.content);
+      console.log(`${type} ${id} copied to clipboard`);
     }
   };
 
-  const handleDelete = (id: number) => {
+  // 通用的删除函数
+  const handleDelete = (id: number, type: ItemType) => {
     if (currentProject) {
-      deletePrompt(currentProject.uid, id);
-      console.log(`Prompt ${id} deleted`);
-    }
-  };
-
-  const handleRestore = (id: number) => {
-    if (currentProject) {
-      restorePrompt(currentProject.uid, id);
-    }
-  };
-
-  const handleAddPrompt = () => {
-    if (currentProject) {
-      addPrompt(currentProject.uid);
+      if (type === 'prompt') {
+        deletePrompt(currentProject.uid, id);
+      } else {
+        deleteMessage(currentProject.uid, id);
+      }
+      console.log(`${type} ${id} deleted`);
     }
   };
 
@@ -132,9 +159,7 @@ export default function Page() {
     }
 
     // 从localStorage获取API key
-    console.log('provider=', provider);
     const apiKeysStr = localStorage.getItem('apiKeys');
-    console.log('apiKeys=', apiKeysStr);
     if (!apiKeysStr) {
       alert(`请在设置中配置 ${provider} 的API密钥`);
       return;
@@ -146,13 +171,18 @@ export default function Page() {
       return;
     }
 
-    // 根据prompt-textarea的类型定义组装消息
-    const messages = currentProject.prompts
-      .filter(p => p.show)
-      .map(p => ({
-        role: p.type,
-        content: p.value
-      }));
+    // 组装消息，先添加prompts，再添加messages
+    const messages = [
+      ...currentProject.prompts.map(p => ({
+        role: p.role,
+        content: p.content
+      })),
+      ...currentProject.messages.map(m => ({
+        role: m.role,
+        content: m.content
+      }))
+    ];
+    console.log('messages=', messages);
 
     if (messages.length === 0) {
       alert("请至少添加一条提示");
@@ -171,8 +201,16 @@ export default function Page() {
       const llm = new LLM(messages, options);
       const response = await llm.send();
 
-      console.log(response);
-      setResponse(response); // TODO: 处理响应
+      console.log('response=', response);
+      setResponse(response);
+      
+      // 添加新的 assistant 消息
+      if (response && currentProject) {
+        addMessage(currentProject.uid, {
+          role: 'assistant',
+          content: response
+        });
+      }
     } catch (error: any) {
       console.error("生成错误:", error);
       alert("生成错误: " + (error.message || "未知错误"));
@@ -239,34 +277,25 @@ export default function Page() {
                 <ul>
                   {currentProject.prompts.map((prompt) => (
                     <li key={prompt.id}>
-                      {prompt.show ? (
                         <PromptTextarea
-                          type={prompt.type}
-                          value={prompt.value}
-                          onChange={(value) =>
-                            handleValueChange(value, prompt.id)
+                          role={prompt.role}
+                          content={prompt.content}
+                          onChange={(content) =>
+                            handleValueChange(content, prompt.id, 'prompt')
                           }
                           onTypeChange={(type) =>
-                            handleTypeChange(type, prompt.id)
+                            handleTypeChange(type, prompt.id, 'prompt')
                           }
-                          onCopy={() => handleCopy(prompt.id)}
-                          onDelete={() => handleDelete(prompt.id)}
+                          onCopy={() => handleCopy(prompt.id, 'prompt')}
+                          onDelete={() => handleDelete(prompt.id, 'prompt')}
                         />
-                      ) : (
-                        <div className="flex flex-col items-center justify-center p-4 border border-dashed rounded-lg mb-2">
-                          <p className="text-gray-500 mb-2">提示已被删除</p>
-                          <Button onClick={() => handleRestore(prompt.id)}>
-                            恢复提示
-                          </Button>
-                        </div>
-                      )}
                     </li>
                   ))}
                 </ul>
                 <Button
                   className="cursor-pointer mt-4"
                   variant="outline"
-                  onClick={handleAddPrompt}
+                  onClick={() => handleAdd('prompt')}
                 >
                   <Plus />
                 </Button>
@@ -281,24 +310,62 @@ export default function Page() {
           </div>
           {/* 右侧 Context+Response 区域 */}
           <div className="flex-1 flex-col rounded-xl p-4">
-            <div className="flex flex-col gap-4">
-              <h2 className="mb-4">Context</h2>
-              <p>TODO: 识别左侧的variables，用户可以给每个variable填充值</p>
-            </div>
-
-            <Separator className="my-4" />
+            {
+              currentProject?.variables?.length && currentProject.variables.length > 0 ? (
+                <>
+                  <div className="flex flex-col gap-4">
+                    <h2 className="mb-4">Variables</h2>
+                    <p>TODO: 识别左侧的variables，用户可以给每个variable填充值</p>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 border border-dashed rounded-lg mb-4">
+                  <p className="text-gray-500">
+                    Prompt Template 中没有 variables
+                  </p>
+                </div>
+              )
+            }            
 
             <div className="flex flex-col gap-4">
               <h2 className="mb-4">Response</h2>
-              <p>TODO: 添加message</p>
-              <p>TODO: 实现run</p>
-              <Button
-                className="cursor-pointer mt-4"
-                variant="outline"
-                onClick={handleAddPrompt}
-              >
-                <Plus />
-              </Button>
+              
+              {currentProject ? (
+              <>
+                <ul>
+                  {currentProject.messages.map((message) => (
+                    <li key={message.id}>
+                        <PromptTextarea
+                          role={message.role}
+                          content={message.content}
+                          onChange={(content) =>
+                            handleValueChange(content, message.id, 'message')
+                          }
+                          onTypeChange={(role) =>
+                            handleTypeChange(role, message.id, 'message')
+                          }
+                          onCopy={() => handleCopy(message.id, 'message')}
+                          onDelete={() => handleDelete(message.id, 'message')}
+                        />
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  className="cursor-pointer"
+                  variant="outline"
+                  onClick={() => handleAdd('message')}
+                >
+                  <Plus /> Add
+                </Button>
+              </>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 border border-dashed rounded-lg">
+                  <p className="text-gray-500 mb-4">
+                    请从侧边栏选择一个项目，或创建新项目
+                  </p>
+                </div>
+              )}
+              
               <div className="flex gap-4">
                 <ModelSelect 
                   value={selectedModel}
@@ -317,6 +384,17 @@ export default function Page() {
                   {isGenerating ? "Generating..." : "Generate"}
                 </Button>
               </div>
+
+              <Alert>
+              <ListTodo className="h-4 w-4" />
+                <AlertTitle>Todo List</AlertTitle>
+                <AlertDescription>
+                  <ol>
+                    <li>实现draggable list</li>
+                    <li>实现prompt template的variables</li>
+                  </ol>
+                </AlertDescription>
+              </Alert>
             </div>
           </div>
         </div>

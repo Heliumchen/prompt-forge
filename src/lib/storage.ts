@@ -1,9 +1,19 @@
 // 定义数据类型
 export interface Prompt {
   id: number;
-  type: 'system' | 'user' | 'assistant';
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+export interface Variable {
+  name: string;
   value: string;
-  show: boolean;
+}
+
+export interface Message {
+  id: number;
+  role: 'system' | 'user' | 'assistant';
+  content: string;
 }
 
 export interface ModelConfig {
@@ -16,6 +26,8 @@ export interface Project {
   name: string;
   icon?: string; // 图标名称，用于侧边栏显示
   prompts: Prompt[];
+  messages: Message[];
+  variables: Variable[];
   modelConfig?: ModelConfig; // 模型配置
 }
 

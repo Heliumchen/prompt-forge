@@ -1,7 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getProjects, saveProjects, Project, Prompt } from '@/lib/storage';
+import { getProjects, saveProjects, Project, Prompt, Variable, Message } from '@/lib/storage';
 import { generateUid } from '@/lib/utils';
 
 interface ProjectContextType {
@@ -14,7 +14,12 @@ interface ProjectContextType {
   addPrompt: (projectUid: string) => void;
   updatePrompt: (projectUid: string, promptId: number, data: Partial<Prompt>) => void;
   deletePrompt: (projectUid: string, promptId: number) => void;
-  restorePrompt: (projectUid: string, promptId: number) => void;
+  // addVariable: (projectUid: string) => void;
+  // updateVariable: (projectUid: string, variableId: number, data: Partial<Variable>) => void;
+  // deleteVariable: (projectUid: string, variableId: number) => void;
+  addMessage: (projectUid: string, data?: Partial<Message>) => void;
+  updateMessage: (projectUid: string, messageId: number, data: Partial<Message>) => void;
+  deleteMessage: (projectUid: string, messageId: number) => void;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -47,7 +52,9 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
       uid: generateUid(),
       name,
       icon,
-      prompts: [{id: 1, type: 'System', value: '', show: true}]
+      prompts: [{id: 1, role: 'system', content: ''}],
+      messages: [],
+      variables: []
     };
     
     setProjects(prev => [...prev, newProject]);
@@ -88,9 +95,8 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
           
           const newPrompt: Prompt = {
             id: newId, 
-            type: 'User', 
-            value: '', 
-            show: true
+            role: 'user', 
+            content: ''
           };
           
           const updatedProject: Project = {
@@ -136,12 +142,104 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
 
   // 删除提示
   const deletePrompt = (projectUid: string, promptId: number) => {
-    updatePrompt(projectUid, promptId, {show: false});
+    setProjects(prev => 
+      prev.map(project => {
+        if (project.uid === projectUid) {
+          const updatedPrompts = project.prompts.filter(prompt => prompt.id !== promptId);
+          
+          const updatedProject: Project = {
+            ...project,
+            prompts: updatedPrompts
+          };
+          
+          if (currentProject?.uid === projectUid) {
+            setCurrentProject(updatedProject);
+          }
+          
+          return updatedProject;
+        }
+        return project;
+      })
+    );
   };
 
-  // 恢复提示
-  const restorePrompt = (projectUid: string, promptId: number) => {
-    updatePrompt(projectUid, promptId, {show: true});
+  // 添加消息
+  const addMessage = (projectUid: string, data?: Partial<Message>) => {
+    setProjects(prev => 
+      prev.map(project => {
+        if (project.uid === projectUid) {
+          const newId = project.messages?.length > 0 
+            ? Math.max(...project.messages.map(m => m.id)) + 1 
+            : 1;
+          
+          const newMessage: Message = {
+            id: newId, 
+            role: data?.role || 'user', 
+            content: data?.content || ''
+          };
+          
+          const updatedProject: Project = {
+            ...project,
+            messages: [...(project.messages || []), newMessage]
+          };
+          
+          if (currentProject?.uid === projectUid) {
+            setCurrentProject(updatedProject);
+          }
+          
+          return updatedProject;
+        }
+        return project;
+      })
+    );
+  };
+
+  // 更新消息
+  const updateMessage = (projectUid: string, messageId: number, data: Partial<Message>) => {
+    setProjects(prev => 
+      prev.map(project => {
+        if (project.uid === projectUid) {
+          const updatedMessages = project.messages?.map(message => 
+            message.id === messageId ? {...message, ...data} : message
+          ) || [];
+          
+          const updatedProject: Project = {
+            ...project,
+            messages: updatedMessages
+          };
+          
+          if (currentProject?.uid === projectUid) {
+            setCurrentProject(updatedProject);
+          }
+          
+          return updatedProject;
+        }
+        return project;
+      })
+    );
+  };
+
+  // 删除消息
+  const deleteMessage = (projectUid: string, messageId: number) => {
+    setProjects(prev => 
+      prev.map(project => {
+        if (project.uid === projectUid) {
+          const updatedMessages = project.messages?.filter(message => message.id !== messageId) || [];
+          
+          const updatedProject: Project = {
+            ...project,
+            messages: updatedMessages
+          };
+          
+          if (currentProject?.uid === projectUid) {
+            setCurrentProject(updatedProject);
+          }
+          
+          return updatedProject;
+        }
+        return project;
+      })
+    );
   };
 
   const value = {
@@ -154,7 +252,9 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
     addPrompt,
     updatePrompt,
     deletePrompt,
-    restorePrompt
+    addMessage,
+    updateMessage,
+    deleteMessage
   };
 
   return (
