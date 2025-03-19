@@ -21,7 +21,7 @@ import {
 
 const models = [
   {
-    group: "OpenAI",
+    provider: "OpenAI",
     items: [
       { value: "o1-preview", label: "o1-preview" },
       { value: "o1-mini", label: "o1-mini" },
@@ -30,7 +30,7 @@ const models = [
     ]
   },
   {
-    group: "Google",
+    provider: "Google",
     items: [
       { value: "gemini-1.5-pro", label: "gemini-1.5-pro" },
       { value: "gemini-1.0-pro", label: "gemini-1.0-pro" },
@@ -38,7 +38,7 @@ const models = [
     ]
   },
   {
-    group: "Anthropic",
+    provider: "Anthropic",
     items: [
       { value: "claude-3-5-sonnet-latest", label: "claude-3-5-sonnet-latest" },
       { value: "claude-3-opus-latest", label: "claude-3-opus-latest" },
@@ -47,7 +47,7 @@ const models = [
     ]
   },
   {
-    group: "DeepSeek",
+    provider: "DeepSeek",
     items: [
       { value: "deepseek-chat", label: "deepseek-chat" },
       { value: "deepseek-reasoner", label: "deepseek-reasoner" }
@@ -55,14 +55,29 @@ const models = [
   }
 ]
 
-export function ModelSelect() {
+interface ModelSelectProps {
+  value?: string;
+  onChange?: (value: string, provider: string) => void;
+}
+
+export function ModelSelect({ value = "", onChange }: ModelSelectProps) {
   const [open, setOpen] = React.useState(false)
-  const [value, setValue] = React.useState("")
+  const [provider, setProvider] = React.useState("")
+  const [modelValue, setModelValue] = React.useState(value)
+
+  // 初始化时从value中解析provider和modelValue
+  React.useEffect(() => {
+    if (value) {
+      const [provider, modelValue] = value.split("/")
+      setProvider(provider)
+      setModelValue(modelValue)
+    }
+  }, [value])
 
   // 查找当前选中模型的标签
   const getSelectedModelLabel = () => {
     for (const group of models) {
-      const foundModel = group.items.find(item => item.value === value)
+      const foundModel = group.items.find(item => item.value === modelValue)
       if (foundModel) return foundModel.label
     }
     return "Select Model..."
@@ -77,7 +92,7 @@ export function ModelSelect() {
           aria-expanded={open}
           className="w-[200px] justify-between"
         >
-          {value ? getSelectedModelLabel() : "Select Model..."}
+          {modelValue ? getSelectedModelLabel() : "Select Model..."}
           <ChevronsUpDown className="opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -85,23 +100,26 @@ export function ModelSelect() {
         <Command>
           <CommandInput placeholder="Search model..." className="h-9" />
           <CommandList>
-            <CommandEmpty>未找到模型。</CommandEmpty>
+            <CommandEmpty>No model found.</CommandEmpty>
             {models.map((group) => (
-              <CommandGroup key={group.group} heading={group.group}>
+              <CommandGroup key={group.provider} heading={group.provider}>
                 {group.items.map((model) => (
                   <CommandItem
                     key={model.value}
                     value={model.value}
                     onSelect={(currentValue) => {
-                      setValue(currentValue === value ? "" : currentValue)
+                      const newValue = currentValue === modelValue ? "" : currentValue
+                      setModelValue(newValue)
+                      setProvider(group.provider)
                       setOpen(false)
+                      onChange?.(`${group.provider}/${newValue}`, group.provider)
                     }}
                   >
                     {model.label}
                     <Check
                       className={cn(
                         "ml-auto",
-                        value === model.value ? "opacity-100" : "opacity-0"
+                        modelValue === model.value ? "opacity-100" : "opacity-0"
                       )}
                     />
                   </CommandItem>

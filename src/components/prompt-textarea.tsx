@@ -18,9 +18,11 @@ import {
 import { Button } from '@/components/ui/button'
 import { Copy, Delete } from 'lucide-react'
 
+// TODO: 编辑器考虑支持markdown https://www.blocknotejs.org/
+
 export interface PromptTextareaProps {
-  type?: 'System' | 'User' | 'Assistant'
-  onTypeChange?: (type: 'System' | 'User' | 'Assistant') => void
+  type?: 'system' | 'user' | 'assistant'
+  onTypeChange?: (type: 'system' | 'user' | 'assistant') => void
   onDelete?: () => void
   onCopy?: () => void
   placeholder?: string
@@ -29,7 +31,7 @@ export interface PromptTextareaProps {
 }
 
 export default function PromptTextarea({
-  type = 'System',
+  type = 'system',
   onTypeChange,
   onDelete,
   onCopy,
@@ -38,7 +40,7 @@ export default function PromptTextarea({
   onChange
 }: PromptTextareaProps) {
   const [textValue, setTextValue] = useState(value)
-  const [currentType, setCurrentType] = useState<'System' | 'User' | 'Assistant'>(type)
+  const [currentType, setCurrentType] = useState<'system' | 'user' | 'assistant'>(type)
   const [currentPlaceholder, setCurrentPlaceholder] = useState(
     placeholder || `${type} Prompt`
   )
@@ -79,7 +81,7 @@ export default function PromptTextarea({
   }
   
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newType = e.target.value as 'System' | 'User' | 'Assistant'
+    const newType = e.target.value as 'system' | 'user' | 'assistant'
     setCurrentType(newType)
     onTypeChange?.(newType)
   }
@@ -99,7 +101,7 @@ export default function PromptTextarea({
             <Select 
               value={currentType.toLowerCase()} 
               onValueChange={(value) => {
-                const newType = value.charAt(0).toUpperCase() + value.slice(1) as 'System' | 'User' | 'Assistant';
+                const newType = value as 'system' | 'user' | 'assistant';
                 setCurrentType(newType);
                 onTypeChange?.(newType);
               }}

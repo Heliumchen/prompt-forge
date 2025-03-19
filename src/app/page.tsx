@@ -1,5 +1,6 @@
 "use client";
 
+import LLM from "@themaximalist/llm.js";
 import { AppSidebar } from "@/components/app-sidebar";
 
 import PromptTextarea from "@/components/prompt-textarea";
@@ -33,6 +34,7 @@ import { TooltipContent } from "@/components/ui/tooltip";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Tooltip } from "@/components/ui/tooltip";
 import { TooltipTrigger } from "@/components/ui/tooltip";
+import { useState, useEffect } from "react";
 
 export default function Page() {
   const {
@@ -41,7 +43,33 @@ export default function Page() {
     updatePrompt,
     deletePrompt,
     restorePrompt,
+    updateProject,
   } = useProjects();
+
+  const [selectedModel, setSelectedModel] = useState<string>("");
+  const [response, setResponse] = useState<string>("");
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  // 初始化时从currentProject中读取模型设置
+  useEffect(() => {
+    if (currentProject?.modelConfig) {
+      setSelectedModel(`${currentProject.modelConfig.provider}/${currentProject.modelConfig.model}`);
+    }
+  }, [currentProject]);
+
+  const handleModelChange = (value: string, provider: string) => {
+    setSelectedModel(value);
+    if (currentProject) {
+      const [modelProvider, modelValue] = value.split("/");
+      updateProject({
+        ...currentProject,
+        modelConfig: {
+          provider: modelProvider,
+          model: modelValue
+        }
+      });
+    }
+  };
 
   const handleValueChange = (value: string, id: number) => {
     if (currentProject) {
@@ -50,7 +78,7 @@ export default function Page() {
   };
 
   const handleTypeChange = (
-    type: "System" | "User" | "Assistant",
+    type: "system" | "user" | "assistant",
     id: number
   ) => {
     if (currentProject) {
@@ -82,6 +110,74 @@ export default function Page() {
   const handleAddPrompt = () => {
     if (currentProject) {
       addPrompt(currentProject.uid);
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (!currentProject) {
+      alert("请选择一个项目");
+      return;
+    }
+
+    if (!selectedModel) {
+      alert("请选择一个模型");
+      return;
+    }
+
+    // 从selectedModel中解析provider和model
+    const [provider, model] = selectedModel.split("/");
+    if (!provider || !model) {
+      alert("模型格式错误");
+      return;
+    }
+
+    // 从localStorage获取API key
+    console.log('provider=', provider);
+    const apiKeysStr = localStorage.getItem('apiKeys');
+    console.log('apiKeys=', apiKeysStr);
+    if (!apiKeysStr) {
+      alert(`请在设置中配置 ${provider} 的API密钥`);
+      return;
+    }
+    const apiKeys = JSON.parse(apiKeysStr);
+    const apiKey = apiKeys[provider];
+    if (!apiKey) {
+      alert(`请在设置中配置 ${provider} 的API密钥`);
+      return;
+    }
+
+    // 根据prompt-textarea的类型定义组装消息
+    const messages = currentProject.prompts
+      .filter(p => p.show)
+      .map(p => ({
+        role: p.type,
+        content: p.value
+      }));
+
+    if (messages.length === 0) {
+      alert("请至少添加一条提示");
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const options = {
+        model,
+        service: provider.toLowerCase(),
+        apikey: apiKey,
+        dangerouslyAllowBrowser: true,
+      };
+
+      const llm = new LLM(messages, options);
+      const response = await llm.send();
+
+      console.log(response);
+      setResponse(response); // TODO: 处理响应
+    } catch (error: any) {
+      console.error("生成错误:", error);
+      alert("生成错误: " + (error.message || "未知错误"));
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -204,12 +300,21 @@ export default function Page() {
                 <Plus />
               </Button>
               <div className="flex gap-4">
-                <ModelSelect />
+                <ModelSelect 
+                  value={selectedModel}
+                  onChange={handleModelChange}
+                />
                 <Button
                   className="cursor-pointer flex-1"
-                  onClick={handleAddPrompt}
+                  onClick={handleGenerate}
+                  disabled={isGenerating}
                 >
-                  <Play />
+                  {isGenerating ? (
+                    <div className="animate-spin mr-2">⌛</div>
+                  ) : (
+                    <Play className="mr-2" />
+                  )}
+                  {isGenerating ? "Generating..." : "Generate"}
                 </Button>
               </div>
             </div>

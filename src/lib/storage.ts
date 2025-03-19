@@ -1,9 +1,14 @@
 // 定义数据类型
 export interface Prompt {
   id: number;
-  type: 'System' | 'User' | 'Assistant';
+  type: 'system' | 'user' | 'assistant';
   value: string;
   show: boolean;
+}
+
+export interface ModelConfig {
+  provider: string;
+  model: string;
 }
 
 export interface Project {
@@ -11,6 +16,7 @@ export interface Project {
   name: string;
   icon?: string; // 图标名称，用于侧边栏显示
   prompts: Prompt[];
+  modelConfig?: ModelConfig; // 模型配置
 }
 
 // 本地存储键名

@@ -143,12 +143,12 @@ const data = {
 // 添加ModelSettingsDialog组件
 function ModelSettingsDialog() {
   const providers = [
-    { name: "OpenAI", id: "openai" },
-    { name: "Google", id: "google" },
-    { name: "Anthropic", id: "anthropic" },
-    { name: "Deepseek", id: "deepseek" },
-    { name: "OpenRouter", id: "openrouter" },
-    { name: "Together", id: "together" },
+    { name: "OpenAI", id: "OpenAI" },
+    { name: "Google", id: "Google" },
+    { name: "Anthropic", id: "Anthropic" },
+    { name: "DeepSeek", id: "DeepSeek" },
+    { name: "OpenRouter", id: "OpenRouter" },
+    { name: "Together", id: "Together" },
   ]
 
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({})
