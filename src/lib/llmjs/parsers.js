@@ -3,7 +3,7 @@ export function codeBlock(blockType) {
         try {
             return content.split("```" + blockType)[1].split("```")[0].trim();
         } catch (e) {
-            console.log(`error parsing code block of type ${blockType} from content`, content);
+            console.// log(`error parsing code block of type ${blockType} from content`, content);
             throw e;
         }
     }
@@ -27,7 +27,7 @@ export function xml(tag) {
             }
             return inner;
         } catch (e) {
-            console.log(`error parsing xml tag ${tag} from content`, content);
+            console.// log(`error parsing xml tag ${tag} from content`, content);
             throw e;
         }
     }

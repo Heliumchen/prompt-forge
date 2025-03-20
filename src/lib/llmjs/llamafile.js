@@ -24,7 +24,7 @@ export default async function LlamaFile(messages, options = {}) {
     if (typeof options.schema === "object") { body.grammar = jsonSchemaToBFNS(options.schema) }
     if (typeof options.stream === "boolean") { body.stream = options.stream }
 
-    log(`sending to ${ENDPOINT} with body ${JSON.stringify(body)}`);
+    // log(`sending to ${ENDPOINT} with body ${JSON.stringify(body)}`);
 
     const signal = new AbortController();
     if (options.eventEmitter) {

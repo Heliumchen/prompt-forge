@@ -27,14 +27,14 @@ export class Agent {
         const tool = this.getTool(fn.name);
         if (!tool) throw new Error(`Tool ${fn.name} not found`);
 
-        log(`running tool ${tool.name} with arguments: ${fn.arguments}`);
+        // log(`running tool ${tool.name} with arguments: ${fn.arguments}`);
         const result = tool.run(JSON.parse(fn.arguments));
-        log(`tool ${tool.name} returned: ${result}`);
+        // log(`tool ${tool.name} returned: ${result}`);
         return result;
     }
 
     async run(prompt, callback, maxIterations = 10) {
-        log(`running ${this.name} with prompt: ${prompt}`);
+        // log(`running ${this.name} with prompt: ${prompt}`);
 
         const options = {
             tools: this.tools.map(tool => tool.schema),

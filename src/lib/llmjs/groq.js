@@ -24,7 +24,7 @@ export default async function Groq(messages, options = {}) {
     if (typeof options.top_p === "number") { body.top_p = options.top_p }
     if (typeof options.stream === "boolean") { body.stream = options.stream }
 
-    log(`sending to ${ENDPOINT} with body ${JSON.stringify(body)}`);
+    // log(`sending to ${ENDPOINT} with body ${JSON.stringify(body)}`);
 
     const signal = new AbortController();
     if (options.eventEmitter) {

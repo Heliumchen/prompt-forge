@@ -24,7 +24,7 @@ export default async function Google(messages, options = {}) {
     if (typeof options.max_tokens === "number") { body.generationConfig.maxOutputTokens = options.max_tokens }
     if (typeof options.temperature === "number") { body.generationConfig.temperature = options.temperature }
 
-    log(`sending to Google endpoint with body ${JSON.stringify(body)}`);
+    // log(`sending to Google endpoint with body ${JSON.stringify(body)}`);
 
     const signal = new AbortController();
     if (options.eventEmitter) {

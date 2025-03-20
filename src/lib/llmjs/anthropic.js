@@ -52,7 +52,7 @@ export default async function Anthropic(messages, options = {}) {
         anthropicOptions.stream = options.stream;
     }
 
-    log(`sending with options ${JSON.stringify(anthropicOptions)}`);
+    // log(`sending with options ${JSON.stringify(anthropicOptions)}`);
 
     const signal = new AbortController();
     if (options.eventEmitter) {

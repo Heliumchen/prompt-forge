@@ -71,7 +71,7 @@ export default async function Ollama(messages, options = {}) {
         keep_alive: options.keep_alive,
     };
 
-    log(`sending to Ollama ${endpoint} with body ${JSON.stringify(requestOptions)}`);
+    // log(`sending to Ollama ${endpoint} with body ${JSON.stringify(requestOptions)}`);
 
     const response = await ollama.chat(requestOptions);
 
