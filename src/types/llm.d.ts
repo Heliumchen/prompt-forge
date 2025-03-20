@@ -1,4 +1,4 @@
-declare module '@themaximalist/llm.js' {
+declare module '@/lib/llmjs' {
   interface Tool {
     type: string;
     function: {

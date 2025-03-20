@@ -1,6 +1,6 @@
 "use client";
 
-import LLM from "@themaximalist/llm.js";
+import LLM from "@/lib/llmjs";
 import { AppSidebar } from "@/components/app-sidebar";
 
 import PromptTextarea from "@/components/prompt-textarea";

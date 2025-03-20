@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Prompt Forge is a prompt engineering tool designed to help users create, test, and optimize prompts for interacting with large language models (LLMs).
+
+## Key Features
+
+- Local-First: All data is stored locally in the browser and never uploaded to any server, ensuring the privacy and security of your prompts and data.
+- Open-Source: Fully open-source code that you can review, modify, or contribute to at any time to meet your specific needs.
+- Powerful Playground: Provides an intuitive interface for testing and debugging prompts, allowing real-time result viewing and adjustments.
+- Evaluation with LLM-as-a-User: Uses LLMs as simulated users to evaluate and compare different prompts, providing objective feedback.
+- Prompt Versioning: Easily track and manage different versions of prompts, compare changes, and roll back to previous versions when needed.
 
 ## Getting Started
 
 First, run the development server:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Clone the repository
+git clone https://github.com/yourusername/prompt-forge.git  
+
+# Navigate to the project directory
+cd prompt-forge  
+
+# Install dependencies
+npm install  
+
+# Start the development server
+npm run dev  
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Contributing
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Contributions are welcome! Feel free to submit issues or pull requests.
 
-## Learn More
+## Acknowledgements
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This work leverages the power of the open source community.
+For LLM library, we utilized [themaximalist/LLM.js](https://github.com/themaximalist/llm.js).
