@@ -23,10 +23,12 @@ const models = [
   {
     provider: "OpenAI",
     items: [
-      { value: "o1-preview", label: "o1-preview" },
+      { value: "o1", label: "o1" },
       { value: "o1-mini", label: "o1-mini" },
+      { value: "o3-mini", label: "o3-mini" },
       { value: "gpt-4o", label: "gpt-4o" },
-      { value: "gpt-4o-mini", label: "gpt-4o-mini" }
+      { value: "gpt-4o-mini", label: "gpt-4o-mini" },
+      { value: "gpt-4.5-preview-2025-02-27", label: "gpt-4.5-preview-2025-02-27" },
     ]
   },
   {
@@ -40,6 +42,8 @@ const models = [
   {
     provider: "Anthropic",
     items: [
+      { value: "claude-3-7-sonnet-latest", label: "claude-3-7-sonnet-latest" },
+      { value: "claude-3-5-haiku-latest", label: "claude-3-5-haiku-latest" },
       { value: "claude-3-5-sonnet-latest", label: "claude-3-5-sonnet-latest" },
       { value: "claude-3-opus-latest", label: "claude-3-opus-latest" },
       { value: "claude-3-sonnet-20240229", label: "claude-3-sonnet-20240229" },
