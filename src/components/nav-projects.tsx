@@ -147,7 +147,7 @@ export function NavProjects() {
             );
           })}
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => setIsDialogOpen(true)}>
+            <SidebarMenuButton className="text-muted-foreground text-xs" onClick={() => setIsDialogOpen(true)}>
               <Plus />
               <span>New Project</span>
             </SidebarMenuButton>

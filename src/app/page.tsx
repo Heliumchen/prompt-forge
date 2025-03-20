@@ -40,6 +40,7 @@ import { TooltipTrigger } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
 import { ProjectSelect } from "@/components/project-select";
 import { toast } from "sonner"
+import { IntroBlock } from "@/components/intro-block";
 
 
 // 定义类型来区分是处理 prompt 还是 message
@@ -540,32 +541,32 @@ export default function Page() {
               </BreadcrumbList>
             </Breadcrumb>
           </div>
-          <div className="flex items-center gap-2 px-4">
-            {/* <Select>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select a version" defaultValue="3" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="3">v3 (Current)</SelectItem>
-                  <SelectItem value="2">v2 (03-12 20:00)</SelectItem>
-                  <SelectItem value="1">v1 (03-11 11:00)</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="secondary">
-                    <Save />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Save new version</TooltipContent>
-              </Tooltip>
-            </TooltipProvider> */}
+          {currentProject ? (
+            <div className="flex items-center gap-2 px-4">
+              <Select defaultValue="1">
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select a version"  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="1">v1</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="secondary">
+                      <Save />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Save new version (Coming soon)</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
           </div>
+          ) : null}
         </header>
-        <div className="flex gap-4 p-4 pt-0">
+        <div className="flex pl-2">
           <div className="flex flex-col rounded-xl w-1/2 p-4">
             {/* 左侧 Prompt 编辑区 */}
             <h2 className="mb-4 font-semibold">Prompt Template</h2>
@@ -610,6 +611,8 @@ export default function Page() {
           </div>
           {/* 右侧 Context+Response 区域 */}
           <div className="flex-1 flex-col rounded-xl p-4">
+          {currentProject ? (
+              <>
             <h2 className="mb-4 font-semibold">Generations</h2>
             <div className="flex flex-col gap-4">
               {
@@ -621,18 +624,17 @@ export default function Page() {
                   </div>
                 </>
               ) : (
-                <Alert>
-              <Braces className="h-4 w-4" />
-                <AlertTitle>Variables</AlertTitle>
+              <Alert className="border-dashed">
+                <Braces className="h-4 w-4" />
+                <AlertTitle>Variables </AlertTitle>
                 <AlertDescription>
-                You can create a variable in prompt template like this: {'{{variable_name}}'}
+                (Coming soon) You can create a variable in prompt template like this: {'{{variable_name}}'}
                 </AlertDescription>
               </Alert>
               )
             }          
               
-              {currentProject ? (
-              <>
+              
                 <ul>
                   {currentProject.messages.map((message) => (
                     <li key={message.id}>
@@ -674,14 +676,7 @@ export default function Page() {
                   </Button>
                 </div>
                 
-              </>
-              ) : (
-                <div className="flex flex-col items-center justify-center p-8 border border-dashed rounded-lg">
-                  <p className="text-gray-500 mb-4">
-                    请从侧边栏选择一个项目，或创建新项目
-                  </p>
-                </div>
-              )}
+
               
               <div className="flex gap-4">
                 <ModelSelect 
@@ -704,7 +699,7 @@ export default function Page() {
 
               <Separator className="my-4" />
               
-              <h2 className="mb-4 font-semibold">Evaluation (LLM-as-a-User)</h2>
+              <h2 className="mb-2 font-semibold">Evaluation (LLM-as-a-User)</h2>
               <div className="flex gap-4">
                 <ProjectSelect 
                   value={selectedEvaluationProject}
@@ -744,6 +739,10 @@ export default function Page() {
                 </Button>
               </div>              
             </div>
+            </>
+              ) : (
+                <IntroBlock />
+              )}
           </div>
         </div>
       </SidebarInset>

@@ -12,6 +12,8 @@ import {
   EyeOff,
   KeyRound,
   ListTodo,
+  Github,
+  Link,
 } from "lucide-react"
 
 import { NavProjects } from "@/components/nav-projects"
@@ -21,6 +23,7 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
   SidebarGroupContent,
   SidebarHeader,
   SidebarMenu,
@@ -263,7 +266,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">Prompt Forge</span>
-                  <span className="truncate text-xs">AI Prompt Manager</span>
+                  <span className="truncate text-xs">AI Prompt Workbench</span>
                 </div>
               </a>
             </SidebarMenuButton>
@@ -272,27 +275,29 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavProjects />
-        <div className="mt-auto">
-          <ModelSettingsDialog />
-          <ThemeToggle />
-          <Alert>
-              <ListTodo className="h-4 w-4" />
-                <AlertTitle>Todo List</AlertTitle>
-                <AlertDescription>
-                  <ol>
-                    <li>P0: 对模型参数进行调整</li>
-                    <li>P0: 部署到Vercel</li>
-                    <li>P0: Push到Github，并加上Github的跳转按钮</li>
-                    <li>P1: 实现draggable list</li>
-                    <li>P1: System Prompt的版本管理</li>
-                    <li>P1: 实现prompt template的variables</li>                    
-                    <li>P1: 支持Load Testset，方便不同样例的管理</li>
-                    <li>P2: Model select 对每个模型都有一个介绍卡片</li>
-                  </ol>
-                </AlertDescription>
-              </Alert>
-        </div>
       </SidebarContent>
+      <SidebarFooter className="p-0">
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <ThemeToggle />
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <ModelSettingsDialog />
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild size="sm">
+                  <a href="https://github.com/Heliumchen/prompt-forge">
+                    <Github />
+                    <span>View on Github</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>              
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>          
+      </SidebarFooter>
     </Sidebar>
   )
 }

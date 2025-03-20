@@ -48,7 +48,7 @@ export default function PromptTextarea({
   const [textValue, setTextValue] = useState(content)
   const [currentRole, setCurrentRole] = useState<'system' | 'user' | 'assistant'>(role)
   const [currentPlaceholder, setCurrentPlaceholder] = useState(
-    placeholder || `${role} Prompt`
+    placeholder || `Enter ${role} prompt here...`
   )
   
   // 当外部type变化时更新内部状态
@@ -59,7 +59,7 @@ export default function PromptTextarea({
   // 当type变化时，如果没有自定义placeholder，则更新placeholder
   useEffect(() => {
     if (!placeholder) {
-      setCurrentPlaceholder(`${currentRole} Prompt`)
+      setCurrentPlaceholder(`Enter ${currentRole} prompt here...`)
     }
   }, [currentRole, placeholder])
   
@@ -196,7 +196,7 @@ export default function PromptTextarea({
         </div>
         <textarea 
           ref={textareaRef}
-          className="textarea w-full p-3 min-h-24 h-fit resize-none overflow-hidden focus:outline-none" 
+          className="textarea w-full p-3 min-h-18 h-fit resize-none overflow-hidden focus:outline-none" 
           placeholder={currentPlaceholder}
           value={textValue}
           onChange={handleChange}
