@@ -1,6 +1,3 @@
-import debug from "debug";
-const log = debug("llm.js");
-
 import LlamaFile from "./llamafile.js";
 import OpenAI from "./openai.js";
 import Anthropic from "./anthropic.js";

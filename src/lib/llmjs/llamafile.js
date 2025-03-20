@@ -1,6 +1,3 @@
-import debug from "debug";
-const log = debug("llm.js:llamafile");
-
 import fetch from "cross-fetch";
 
 import { jsonSchemaToBFNS, stream_response } from "./utils.js";

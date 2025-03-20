@@ -1,6 +1,3 @@
-import debug from "debug";
-const log = debug("llm.js:mistral");
-
 const ENDPOINT = "https://api.mistral.ai/v1/chat/completions";
 const MODEL = "mistral-large-latest";
 

@@ -1,6 +1,3 @@
-import debug from "debug";
-const log = debug("llm.js:openai");
-
 import { OpenAI as OpenAIClient } from "openai";
 
 const MODEL = "gpt-4o-mini";

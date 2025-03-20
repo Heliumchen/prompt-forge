@@ -1,6 +1,3 @@
-import debug from "debug";
-const log = debug("llm.js:perplexity");
-
 const ENDPOINT = "https://api.perplexity.ai/chat/completions";
 // const MODEL = "llama-3.1-sonar-huge-128k-online";
 const MODEL = "llama-3.1-sonar-small-128k-online";

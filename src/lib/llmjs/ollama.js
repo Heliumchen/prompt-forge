@@ -1,7 +1,4 @@
-import debug from "debug";
 import { Ollama as OllamaClient } from 'ollama';
-
-const log = debug("llm.js:ollama");
 
 const ENDPOINT = ""; // defaults to http://127.0.0.1:11434
 const MODEL = "llama2:7b";

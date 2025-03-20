@@ -1,6 +1,3 @@
-import debug from "debug";
-const log = debug("llm.js:groq");
-
 const ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 const MODEL = "llama-3.3-70b-specdec";
 

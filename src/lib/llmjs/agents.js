@@ -1,5 +1,3 @@
-import debug from "debug";
-const log = debug("llm.js:agents");
 import LLM from "./index.js";
 
 export class Agent {

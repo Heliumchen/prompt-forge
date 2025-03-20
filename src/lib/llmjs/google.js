@@ -1,6 +1,3 @@
-import debug from "debug";
-const log = debug("llm.js:google");
-
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/[MODEL]:[ACTION]?key=[APIKEY]";
 const MODEL = "gemini-1.5-flash";
 
