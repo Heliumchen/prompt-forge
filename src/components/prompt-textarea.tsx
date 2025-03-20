@@ -98,12 +98,6 @@ export default function PromptTextarea({
     onChange?.(e.target.value)
   }
   
-  const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newRole = e.target.value as 'system' | 'user' | 'assistant'
-    setCurrentRole(newRole)
-    onTypeChange?.(newRole)
-  }
-  
   const handleCopy = () => {
     navigator.clipboard.writeText(textValue)
     onCopy?.()

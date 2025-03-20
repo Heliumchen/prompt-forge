@@ -57,19 +57,17 @@ const models = [
 
 interface ModelSelectProps {
   value?: string;
-  onChange?: (value: string, provider: string) => void;
+  onChange?: (value: string) => void;
 }
 
 export function ModelSelect({ value = "", onChange }: ModelSelectProps) {
   const [open, setOpen] = React.useState(false)
-  const [provider, setProvider] = React.useState("")
   const [modelValue, setModelValue] = React.useState(value)
 
   // 初始化时从value中解析provider和modelValue
   React.useEffect(() => {
     if (value) {
-      const [provider, modelValue] = value.split("/")
-      setProvider(provider)
+      const [, modelValue] = value.split("/")
       setModelValue(modelValue)
     }
   }, [value])
@@ -107,12 +105,11 @@ export function ModelSelect({ value = "", onChange }: ModelSelectProps) {
                   <CommandItem
                     key={model.value}
                     value={model.value}
-                    onSelect={(currentValue) => {
+                    onSelect={(currentValue: string) => {
                       const newValue = currentValue === modelValue ? "" : currentValue
                       setModelValue(newValue)
-                      setProvider(group.provider)
                       setOpen(false)
-                      onChange?.(`${group.provider}/${newValue}`, group.provider)
+                      onChange?.(`${group.provider}/${newValue}`)
                     }}
                   >
                     {model.label}

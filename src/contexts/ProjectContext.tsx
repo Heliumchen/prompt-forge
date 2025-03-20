@@ -1,7 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getProjects, saveProjects, Project, Prompt, Variable, Message } from '@/lib/storage';
+import { getProjects, saveProjects, Project, Prompt, Message } from '@/lib/storage';
 import { generateUid } from '@/lib/utils';
 
 interface ProjectContextType {

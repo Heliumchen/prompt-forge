@@ -41,6 +41,7 @@ import { useState, useEffect } from "react";
 import { ProjectSelect } from "@/components/project-select";
 import { toast } from "sonner"
 import { IntroBlock } from "@/components/intro-block";
+import { Message, Project, Prompt } from "@/lib/storage";
 
 
 // 定义类型来区分是处理 prompt 还是 message
@@ -79,7 +80,7 @@ export default function Page() {
     }
   }, [currentProject]);
 
-  const handleModelChange = (value: string, provider: string) => {
+  const handleModelChange = (value: string) => {
     setSelectedModel(value);
     if (currentProject) {
       const [modelProvider, modelValue] = value.split("/");
@@ -302,9 +303,9 @@ export default function Page() {
         role: 'user',
         content: ''
       });
-    } catch (error: any) {
+    } catch (error: Error | unknown) {
       console.error("生成错误:", error);
-      toast.error("生成错误: " + (error.message || "未知错误"));
+      toast.error("生成错误: " + ((error instanceof Error) ? error.message : "未知错误"));
     } finally {
       setIsGenerating(false);
       setGeneratingMessageId(null);
@@ -348,7 +349,7 @@ export default function Page() {
     }
 
     // 获取评估项目
-    const evaluationProject = projects.find((p: any) => p.uid === selectedEvaluationProject);
+    const evaluationProject = projects.find((p: Project) => p.uid === selectedEvaluationProject);
     
     if (!evaluationProject) {
       toast.error("评估项目不存在");
@@ -360,7 +361,7 @@ export default function Page() {
 
     try {
       // 创建一个本地变量来跟踪所有生成的消息
-      let localMessages = [...currentProject.messages];
+      const localMessages = [...currentProject.messages];
       
       // 模拟对话轮次
       for (let i = 0; i < rounds; i++) {
@@ -370,11 +371,11 @@ export default function Page() {
         try {
           // 使用本地跟踪的消息
           const currentProjectMessages = [
-            ...currentProject.prompts.map((p: any) => ({
+            ...currentProject.prompts.map((p: Prompt) => ({
               role: p.role,
               content: p.content
             })),
-            ...localMessages.map((m: any) => ({
+            ...localMessages.map((m: Message) => ({
               role: m.role,
               content: m.content
             }))
@@ -422,7 +423,7 @@ export default function Page() {
           // 添加新生成的消息到本地消息列表
           const assistantMessage = {
             id: Date.now(), // 临时ID
-            role: "assistant" as "assistant",
+            role: "assistant" as const,
             content: assistantContent
           };
           localMessages.push(assistantMessage);
@@ -430,15 +431,19 @@ export default function Page() {
           // 构建反转消息，使用本地消息列表
           const reversedMessages = [
             // 首先添加评估项目的system prompt
-            ...evaluationProject.prompts.map((p: any) => ({
+            ...evaluationProject.prompts.map((p: Prompt) => ({
               role: p.role,
               content: p.content
             })),
             // 添加本地消息历史，但角色反转
-            ...localMessages.map((m: any) => ({
-              role: m.role === 'assistant' ? 'user' : (m.role === 'user' ? 'assistant' : m.role),
-              content: m.content
-            }))
+            ...localMessages.map((m: Message) => {
+              const reversedRole = m.role === 'assistant' ? 'user' : 
+                                  (m.role === 'user' ? 'assistant' : m.role);
+              return {
+                role: reversedRole as "system" | "user" | "assistant",
+                content: m.content
+              };
+            })
             // 注意：不需要再添加assistantContent，因为它已经包含在localMessages中
           ];
           
@@ -486,15 +491,15 @@ export default function Page() {
           // 添加新生成的user消息到本地消息列表
           const userMessage = {
             id: Date.now() + 1, // 临时ID
-            role: "user" as "user",
+            role: "user" as const,
             content: userContent
           };
           localMessages.push(userMessage);
           
-        } catch (roundError: any) {
+        } catch (roundError: Error | unknown) {
           console.error(`轮次 ${i+1} 评估错误:`, roundError);
           // 显示错误但继续下一轮
-          toast.error(`轮次 ${i+1} 评估错误: ${roundError.message || "未知错误"}`);
+          toast.error(`轮次 ${i+1} 评估错误: ${(roundError instanceof Error) ? roundError.message : "未知错误"}`);
           
           // 重置流式状态
           setStreamingMessageId(null);
@@ -506,9 +511,9 @@ export default function Page() {
       }
       
       toast.success(`评估完成，共进行了 ${rounds} 轮对话模拟`);
-    } catch (error: any) {
+    } catch (error: Error | unknown) {
       console.error("评估错误:", error);
-      toast.error("评估错误: " + (error.message || "未知错误"));
+      toast.error("评估错误: " + ((error instanceof Error) ? error.message : "未知错误"));
     } finally {
       setIsEvaluating(false);
       setEvaluatingRound(0);

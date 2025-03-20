@@ -1,16 +1,11 @@
 "use client"
 
 import {
-  Folder,
   FolderPen,
   MoreHorizontal,
   Share,
   Trash2,
   Plus,
-  type LucideIcon,
-  Frame,
-  PieChart,
-  Map,
   FileText
 } from "lucide-react"
 
@@ -37,15 +32,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-// 图标映射
-const iconMap: Record<string, LucideIcon> = {
-  'Frame': Frame,
-  'PieChart': PieChart,
-  'Map': Map,
-  'Folder': Folder
-};
 
 export function NavProjects() {
   const { isMobile } = useSidebar()
@@ -104,9 +90,7 @@ export function NavProjects() {
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
         <SidebarGroupLabel>Projects</SidebarGroupLabel>
         <SidebarMenu>
-          {projects.map((project) => {
-            const IconComponent = project.icon ? iconMap[project.icon] || Folder : Folder;
-            
+          {projects.map((project) => {            
             return (
               <SidebarMenuItem key={project.uid}>
                 <SidebarMenuButton 

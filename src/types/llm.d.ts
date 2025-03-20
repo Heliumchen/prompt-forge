@@ -1,4 +1,17 @@
 declare module '@themaximalist/llm.js' {
+  interface Tool {
+    type: string;
+    function: {
+      name: string;
+      description?: string;
+      parameters?: Record<string, unknown>;
+    };
+  }
+  
+  interface Stream extends AsyncIterable<string> {
+    [Symbol.asyncIterator](): AsyncIterator<string>;
+  }
+  
   interface LLMOptions {
     model?: string;
     service?: string;
@@ -6,9 +19,9 @@ declare module '@themaximalist/llm.js' {
     temperature?: number;
     max_tokens?: number;
     stream?: boolean;
-    tools?: any[];
+    tools?: Tool[];
     stream_handler?: (chunk: string) => void;
-    parser?: (response: any) => any;
+    parser?: (response: unknown) => unknown;
   }
 
   interface Message {
@@ -21,8 +34,8 @@ declare module '@themaximalist/llm.js' {
     options: LLMOptions;
     
     constructor(input: string | Message[], options?: LLMOptions);
-    send(opts?: LLMOptions): Promise<any>;
-    chat(content: string, options?: LLMOptions): Promise<any>;
+    send(opts?: LLMOptions): Promise<Stream>;
+    chat(content: string, options?: LLMOptions): Promise<unknown>;
     user(content: string): void;
     system(content: string): void;
     assistant(content: string): void;
@@ -40,7 +53,7 @@ declare module '@themaximalist/llm.js' {
   const PERPLEXITY: string;
   const DEEPSEEK: string;
 
-  function LLM(input: string | Message[], options?: LLMOptions): Promise<any>;
+  function LLM(input: string | Message[], options?: LLMOptions): Promise<Stream>;
   
   namespace LLM {
     export { LLAMAFILE, OPENAI, ANTHROPIC, MISTRAL, GOOGLE, OLLAMA, GROQ, TOGETHER, PERPLEXITY, DEEPSEEK };
