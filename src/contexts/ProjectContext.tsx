@@ -252,18 +252,46 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
 
   // 清空消息
   const clearMessages = (projectUid: string) => {   
-    // 同步更新 currentProject
-    if (currentProject?.uid === projectUid) {
-      setCurrentProject(prev => prev ? {...prev, messages: []} : null);
-    }
+    setProjects(prev => 
+      prev.map(project => {
+        if (project.uid === projectUid) {
+          const updatedProject = {
+            ...project,
+            messages: []
+          };
+          
+          // 同步更新 currentProject
+          if (currentProject?.uid === projectUid) {
+            setCurrentProject(updatedProject);
+          }
+          
+          return updatedProject;
+        }
+        return project;
+      })
+    );
   };
 
   // 清空提示
   const clearPrompts = (projectUid: string) => {    
-    // 同步更新 currentProject
-    if (currentProject?.uid === projectUid) {
-      setCurrentProject(prev => prev ? {...prev, prompts: []} : null);
-    }
+    setProjects(prev => 
+      prev.map(project => {
+        if (project.uid === projectUid) {
+          const updatedProject = {
+            ...project,
+            prompts: []
+          };
+          
+          // 同步更新 currentProject
+          if (currentProject?.uid === projectUid) {
+            setCurrentProject(updatedProject);
+          }
+          
+          return updatedProject;
+        }
+        return project;
+      })
+    );
   };
 
   const value = {
