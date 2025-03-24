@@ -88,6 +88,7 @@ export function NavProjects() {
   const handleDuplicateProject = (projectUid: string) => {
     const project = projects.find(p => p.uid === projectUid);
     if (project) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { uid, name, ...projectData } = project;
       addProject(`${name} (Copy)`, project.icon, projectData);
     }

@@ -3,9 +3,6 @@
 import * as React from "react"
 import {
   Anvil,
-  Eye,
-  EyeOff,
-  KeyRound,
   Github,
 } from "lucide-react"
 

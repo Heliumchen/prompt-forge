@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Info, SquareArrowOutUpRight } from "lucide-react"
+import { SquareArrowOutUpRight } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -14,12 +14,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import { ModelConfig } from "@/lib/storage"
 
 interface DialogModelSettingsProps {

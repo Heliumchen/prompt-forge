@@ -41,7 +41,7 @@ import { useState, useEffect } from "react";
 import { ProjectSelect } from "@/components/project-select";
 import { toast } from "sonner"
 import { IntroBlock } from "@/components/intro-block";
-import { Message, ModelConfig, Project, Prompt } from "@/lib/storage";
+import { Message, Project, Prompt } from "@/lib/storage";
 import { DialogModelSettings } from "@/components/dialog-model-settings";
 
 
