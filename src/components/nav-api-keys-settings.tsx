@@ -16,6 +16,8 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar"
+import { toast } from "sonner"
+
 
 export function NavAPIKeysSettings() {
   const providers = [
@@ -41,6 +43,7 @@ export function NavAPIKeysSettings() {
         }
       } catch (error) {
         console.error('Error loading API keys:', error)
+        toast.error('Error loading API keys')
       }
     }
   }
@@ -55,7 +58,8 @@ export function NavAPIKeysSettings() {
 
   const saveKeys = () => {
     localStorage.setItem('apiKeys', JSON.stringify(apiKeys))
-    alert('API keys have been saved to local storage')
+    toast.success('API keys have been saved to local storage')
+    setIsOpen(false)
   }
 
   return (

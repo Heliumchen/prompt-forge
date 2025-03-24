@@ -3,10 +3,10 @@
 import {
   FolderPen,
   MoreHorizontal,
-  Share,
   Trash2,
   Plus,
-  FileText
+  FileText,
+  Copy
 } from "lucide-react"
 
 import {
@@ -85,6 +85,14 @@ export function NavProjects() {
     }
   }
 
+  const handleDuplicateProject = (projectUid: string) => {
+    const project = projects.find(p => p.uid === projectUid);
+    if (project) {
+      const { uid, name, ...projectData } = project;
+      addProject(`${name} (Copy)`, project.icon, projectData);
+    }
+  }
+
   return (
     <>
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
@@ -116,9 +124,9 @@ export function NavProjects() {
                       <FolderPen className="text-muted-foreground" />
                       <span>Rename</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Share className="text-muted-foreground" />
-                      <span>Share</span>
+                    <DropdownMenuItem onClick={() => handleDuplicateProject(project.uid)}>
+                      <Copy className="text-muted-foreground" />
+                      <span>Duplicate</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => handleDeleteProject(project.uid)}>

@@ -8,7 +8,7 @@ interface ProjectContextType {
   projects: Project[];
   currentProject: Project | null;
   setCurrentProject: (project: Project | null) => void;
-  addProject: (name: string, icon?: string) => void;
+  addProject: (name: string, icon?: string, projectData?: Partial<Project>) => void;
   updateProject: (project: Project) => void;
   deleteProject: (uid: string) => void;
   addPrompt: (projectUid: string) => void;
@@ -49,14 +49,15 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
   }, [projects]);
 
   // 添加新项目
-  const addProject = (name: string, icon?: string) => {
+  const addProject = (name: string, icon?: string, projectData?: Partial<Project>) => {
     const newProject: Project = {
       uid: generateUid(),
       name,
       icon,
-      prompts: [{id: 1, role: 'system', content: ''}],
-      messages: [],
-      variables: []
+      prompts: projectData?.prompts || [{id: 1, role: 'system', content: ''}],
+      messages: projectData?.messages || [],
+      variables: projectData?.variables || [],
+      modelConfig: projectData?.modelConfig
     };
     
     setProjects(prev => [...prev, newProject]);

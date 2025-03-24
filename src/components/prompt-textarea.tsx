@@ -78,13 +78,28 @@ export default function PromptTextarea({
   // 添加自动调整高度的功能
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   
+  // 添加窗口大小变化的监听
+  useEffect(() => {
+    const handleResize = () => {
+      adjustHeight()
+    }
+    
+    window.addEventListener('resize', handleResize)
+    
+    // 清理函数
+    return () => {
+      window.removeEventListener('resize', handleResize)
+    }
+  }, []) // 空依赖数组，只在组件挂载时添加监听
+  
+  // 修改 adjustHeight 函数，确保在下一帧执行
   const adjustHeight = () => {
     const textarea = textareaRef.current
     if (textarea) {
-      // 先将高度重置为自动，以便正确计算内容高度
-      textarea.style.height = 'auto'
-      // 然后设置为实际内容的高度
-      textarea.style.height = `${textarea.scrollHeight}px`
+      requestAnimationFrame(() => {
+        textarea.style.height = 'auto'
+        textarea.style.height = `${textarea.scrollHeight}px`
+      })
     }
   }
   

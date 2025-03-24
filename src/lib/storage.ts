@@ -19,6 +19,11 @@ export interface Message {
 export interface ModelConfig {
   provider: string;
   model: string;
+  temperature?: number;
+  max_tokens?: number;
+  presence_penalty?: number;
+  frequency_penalty?: number;
+  top_p?: number;
 }
 
 export interface Project {

@@ -30,7 +30,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Plus, Save, Play, Braces, Swords, MessageCircleOff } from "lucide-react";
+import { Plus, Save, Play, Braces, Swords, MessageCircleOff, Settings2 } from "lucide-react";
 import { useProjects } from "@/contexts/ProjectContext";
 import { ModelSelect } from "@/components/model-select";
 import { TooltipContent } from "@/components/ui/tooltip";
@@ -41,7 +41,8 @@ import { useState, useEffect } from "react";
 import { ProjectSelect } from "@/components/project-select";
 import { toast } from "sonner"
 import { IntroBlock } from "@/components/intro-block";
-import { Message, Project, Prompt } from "@/lib/storage";
+import { Message, ModelConfig, Project, Prompt } from "@/lib/storage";
+import { DialogModelSettings } from "@/components/dialog-model-settings";
 
 
 // 定义类型来区分是处理 prompt 还是 message
@@ -72,6 +73,7 @@ export default function Page() {
   const [evaluatingRound, setEvaluatingRound] = useState<number>(0);
   const [evaluatingTotal, setEvaluatingTotal] = useState<number>(0);
   const [selectedEvaluationRound, setSelectedEvaluationRound] = useState<number>(5);
+  const [isModelSettingsOpen, setIsModelSettingsOpen] = useState(false);
 
   // 初始化时从currentProject中读取模型设置
   useEffect(() => {
@@ -109,10 +111,10 @@ export default function Page() {
     if (currentProject) {
       if (type === 'prompt') {
         clearPrompts(currentProject.uid);
-        toast.success("Prompt templates clear");
+        toast.success("Prompt templates cleared");
       } else {
         clearMessages(currentProject.uid);
-        toast.success("Messages clear");
+        toast.success("Messages cleared");
       }
     }
   };
@@ -253,6 +255,8 @@ export default function Page() {
         apikey: apiKey,
         dangerouslyAllowBrowser: true,
         stream: true, // 启用流式输出
+        temperature: currentProject.modelConfig?.temperature || 1.0,
+        max_tokens: currentProject.modelConfig?.max_tokens || 1024,
       };
 
       let generatedText = '';
@@ -298,11 +302,13 @@ export default function Page() {
         setStreamingContent('');
       }, 100);
 
-      // 添加一个用户消息，方便用户接话
-      addMessage(currentProject.uid, {
-        role: 'user',
-        content: ''
-      });
+      // 只有在不是重新生成的情况下才添加新的用户消息
+      if (messageId === undefined) {
+        addMessage(currentProject.uid, {
+          role: 'user',
+          content: ''
+        });
+      }
     } catch (error: Error | unknown) {
       console.error("生成错误:", error);
       toast.error("生成错误: " + ((error instanceof Error) ? error.message : "未知错误"));
@@ -388,6 +394,8 @@ export default function Page() {
             apikey: apiKey,
             dangerouslyAllowBrowser: true,
             stream: true,
+            temperature: currentProject.modelConfig?.temperature || 1.0,
+            max_tokens: currentProject.modelConfig?.max_tokens || 1024,
           };
           
           // 创建新的assistant消息
@@ -456,6 +464,8 @@ export default function Page() {
             apikey: apiKey,
             dangerouslyAllowBrowser: true,
             stream: true,
+            temperature: currentProject.modelConfig?.temperature || 1.0,
+            max_tokens: currentProject.modelConfig?.max_tokens || 1024,
           };
           
           // 创建新的user消息
@@ -527,6 +537,21 @@ export default function Page() {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
+        {currentProject && (
+          <DialogModelSettings
+            open={isModelSettingsOpen}
+            onOpenChange={setIsModelSettingsOpen}
+            modelConfig={currentProject.modelConfig || { provider: "", model: "" }}
+            onSave={(config) => {
+              if (currentProject) {
+                updateProject({
+                  ...currentProject,
+                  modelConfig: config
+                });
+              }
+            }}
+          />
+        )}
         <header className="flex h-16 shrink-0 items-center gap-2 border-b justify-between">
           <div className="flex items-center gap-2 px-4">
             <SidebarTrigger className="-ml-1" />
@@ -671,7 +696,6 @@ export default function Page() {
                   >
                     <Plus /> Add
                   </Button>
-
                   <Button
                     variant="outline"
                     onClick={() => handleClearAll('message')}
@@ -688,6 +712,14 @@ export default function Page() {
                   value={selectedModel}
                   onChange={handleModelChange}
                 />
+                <Button
+                    variant="outline"
+                    onClick={() => setIsModelSettingsOpen(true)}
+                    disabled={isGenerating}
+                    className="w-[70px]"
+                  >
+                  <Settings2/>
+                </Button>
                 <Button
                   className="flex-1"
                   onClick={() => handleGenerate()}
@@ -711,7 +743,7 @@ export default function Page() {
                   onChange={(value) => setSelectedEvaluationProject(value)}
                 />
                 <Select defaultValue="5" onValueChange={(value) => setSelectedEvaluationRound(parseInt(value))}>
-                  <SelectTrigger className="w-[80px]">
+                  <SelectTrigger className="w-[70px]">
                     <SelectValue placeholder="Rounds" />
                   </SelectTrigger>
                   <SelectContent>
