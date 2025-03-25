@@ -8,7 +8,6 @@ import {
   FileText,
   Copy,
   Download,
-  Upload
 } from "lucide-react"
 
 import {
@@ -127,7 +126,7 @@ export function NavProjects() {
         }
         
         // 移除uid，让系统生成新的
-        const { uid, ...projectWithoutUid } = projectData;
+        const { _uid, ...projectWithoutUid } = projectData;
         addProject(projectData.name, projectData.icon, projectWithoutUid);
         setIsDialogOpen(false);
         setImportError(null);
