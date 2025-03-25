@@ -59,43 +59,58 @@ Google.defaultModel = MODEL;
 // very hacky :( but it works, Google will likely change this in the future and we'll fix it then
 export async function* stream_response(response) {
     const textDecoder = new TextDecoder();
-
     let buffer = "";
+    
     for await (const chunk of response.body) {
         let data = textDecoder.decode(chunk);
-
         buffer += data;
-
+        
+        // 清理开头的 [ 和 ,
         if (buffer.startsWith("[")) buffer = buffer.slice(1);
         if (buffer.startsWith(",")) buffer = buffer.slice(1);
-        const parts = buffer.split("}\n,\r\n{\n");
-
+        
+        // 按正确的分隔符分割
+        const parts = buffer.split(/}\r?\n,\r?\n{/);
         buffer = "";
 
         for (const part of parts) {
             try {
-                let cleanPart = part;
+                let cleanPart = part.trim();
+                // 清理结尾的 ]
                 if (cleanPart.endsWith("]")) {
                     cleanPart = cleanPart.slice(0, -1);
                 }
+                // 确保JSON格式完整
+                if (!cleanPart.startsWith("{")) cleanPart = "{" + cleanPart;
+                if (!cleanPart.endsWith("}")) cleanPart = cleanPart + "}";
+                
                 const obj = JSON.parse(cleanPart);
-                yield obj.candidates[0].content.parts[0].text;
-            } catch {
+                if (obj.candidates?.[0]?.content?.parts?.[0]?.text) {
+                    yield obj.candidates[0].content.parts[0].text;
+                }
+            } catch (e) {
                 buffer += part;
             }
         }
     }
 
+    // 处理剩余的buffer
     if (buffer.trim().length > 0) {
         try {
-            let finalBuffer = buffer;
-            if (finalBuffer.endsWith("]")) {
-                finalBuffer = finalBuffer.slice(0, -1);
-            }
+            let finalBuffer = buffer.trim();
+            // 移除开头和结尾的方括号
+            if (finalBuffer.startsWith("[")) finalBuffer = finalBuffer.slice(1);
+            if (finalBuffer.endsWith("]")) finalBuffer = finalBuffer.slice(0, -1);
+            
+            // 尝试直接解析清理后的JSON
             const obj = JSON.parse(finalBuffer);
-            yield obj.candidates[0].content.parts[0].text;
-        } catch {
-            throw new Error(`Unable to parse JSON in stream: ${buffer}`);
+            if (obj.candidates?.[0]?.content?.parts?.[0]?.text) {
+                yield obj.candidates[0].content.parts[0].text;
+            }
+        } catch (e) {
+            // 如果解析失败，记录错误但不抛出异常
+            console.error("无法解析最终的JSON数据，错误:", e.message);
+            console.debug("问题数据:", buffer);
         }
     }
 }
