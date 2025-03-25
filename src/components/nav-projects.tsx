@@ -6,7 +6,9 @@ import {
   Trash2,
   Plus,
   FileText,
-  Copy
+  Copy,
+  Download,
+  Upload
 } from "lucide-react"
 
 import {
@@ -42,6 +44,7 @@ export function NavProjects() {
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false)
   const [projectToRename, setProjectToRename] = useState<Project | null>(null)
   const [renameProjectName, setRenameProjectName] = useState('')
+  const [importError, setImportError] = useState<string | null>(null)
 
   const handleProjectClick = (projectUid: string) => {
     const project = projects.find(p => p.uid === projectUid)
@@ -94,6 +97,47 @@ export function NavProjects() {
     }
   }
 
+  const handleExportProject = (projectUid: string) => {
+    const project = projects.find(p => p.uid === projectUid);
+    if (project) {
+      const projectData = JSON.stringify(project, null, 2);
+      const blob = new Blob([projectData], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${project.name}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  const handleImportProject = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const projectData = JSON.parse(e.target?.result as string);
+        // 验证项目数据格式
+        if (!projectData.name || !projectData.prompts || !projectData.messages) {
+          throw new Error('无效的项目数据格式');
+        }
+        
+        // 移除uid，让系统生成新的
+        const { uid, ...projectWithoutUid } = projectData;
+        addProject(projectData.name, projectData.icon, projectWithoutUid);
+        setIsDialogOpen(false);
+        setImportError(null);
+      } catch (error) {
+        setImportError(error instanceof Error ? error.message : '导入失败');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <>
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
@@ -129,6 +173,10 @@ export function NavProjects() {
                       <Copy className="text-muted-foreground" />
                       <span>Duplicate</span>
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleExportProject(project.uid)}>
+                      <Download className="text-muted-foreground" />
+                      <span>Export</span>
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => handleDeleteProject(project.uid)}>
                       <Trash2 className="text-muted-foreground" />
@@ -151,22 +199,50 @@ export function NavProjects() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>创建新项目</DialogTitle>
+            <DialogTitle>Create New Project</DialogTitle>
+            <DialogDescription>
+              Create a new project or import an existing project
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="name">项目名称</Label>
+              <Label htmlFor="name">Project Name</Label>
               <Input 
                 id="name" 
                 value={newProjectName} 
                 onChange={(e) => setNewProjectName(e.target.value)} 
-                placeholder="输入项目名称" 
+                placeholder="Enter project name" 
               />
+            </div>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or
+                </span>
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="import-file">Import Project File (*.json)</Label>
+              <Input 
+                id="import-file" 
+                type="file" 
+                accept=".json"
+                onChange={handleImportProject}
+                className="cursor-pointer"
+              />
+              {importError && (
+                <div className="text-sm text-red-500">
+                  {importError}
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>取消</Button>
-            <Button onClick={handleAddProject}>创建</Button>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddProject}>Create</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -181,18 +257,18 @@ export function NavProjects() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="rename-name">项目名称</Label>
+              <Label htmlFor="rename-name">Project Name</Label>
               <Input 
                 id="rename-name" 
                 value={renameProjectName} 
                 onChange={(e) => setRenameProjectName(e.target.value)} 
-                placeholder="输入新的项目名称" 
+                placeholder="Enter new project name" 
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsRenameDialogOpen(false)}>取消</Button>
-            <Button onClick={submitRenameProject}>重命名</Button>
+            <Button variant="outline" onClick={() => setIsRenameDialogOpen(false)}>Cancel</Button>
+            <Button onClick={submitRenameProject}>Rename</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
