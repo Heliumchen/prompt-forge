@@ -32,7 +32,11 @@ export function DialogModelSettings({
   const [config, setConfig] = useState<ModelConfig>(modelConfig)
 
   const handleSave = () => {
-    onSave(config)
+    onSave({
+      ...modelConfig,
+      temperature: config.temperature,
+      max_tokens: config.max_tokens
+    })
     onOpenChange(false)
   }
 
@@ -69,9 +73,9 @@ export function DialogModelSettings({
             <Input
               id="max_tokens"
               type="number"
-              value={config.max_tokens || 1024}
+              value={config.max_tokens || 4096}
               onChange={(e) => setConfig({ ...config, max_tokens: e.target.value ? parseInt(e.target.value) : undefined })}
-              placeholder="Default: 1024"
+              placeholder="Default: 4096"
             />
           </div>
 
