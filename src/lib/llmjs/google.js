@@ -88,7 +88,7 @@ export async function* stream_response(response) {
                 if (obj.candidates?.[0]?.content?.parts?.[0]?.text) {
                     yield obj.candidates[0].content.parts[0].text;
                 }
-            } catch (e) {
+            } catch {
                 buffer += part;
             }
         }
