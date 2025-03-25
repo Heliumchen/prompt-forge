@@ -34,9 +34,11 @@ const models = [
   {
     provider: "Google",
     items: [
+      { value: "gemini-2.0-flash", label: "gemini-2.0-flash" },
+      { value: "gemini-2.0-flash-lite", label: "gemini-2.0-flash-lite" },
+      { value: "gemini-2.0-pro-exp-02-05", label: "gemini-2.0-pro-exp-02-05" },
       { value: "gemini-1.5-pro", label: "gemini-1.5-pro" },
-      { value: "gemini-1.0-pro", label: "gemini-1.0-pro" },
-      { value: "gemini-pro-vision", label: "gemini-pro-vision" }
+      { value: "gemini-1.5-flash", label: "gemini-1.5-flash" }
     ]
   },
   {

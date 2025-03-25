@@ -1,5 +1,5 @@
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/[MODEL]:[ACTION]?key=[APIKEY]";
-const MODEL = "gemini-1.5-flash";
+const MODEL = "gemini-2.0-flash-lite";
 
 export default async function Google(messages, options = {}) {
     if (!messages || messages.length === 0) { throw new Error("No messages provided") }
@@ -68,14 +68,17 @@ export async function* stream_response(response) {
 
         if (buffer.startsWith("[")) buffer = buffer.slice(1);
         if (buffer.startsWith(",")) buffer = buffer.slice(1);
-        if (buffer.endsWith("]\n")) buffer = buffer.slice(0, -2);
         const parts = buffer.split("}\n,\r\n{\n");
 
         buffer = "";
 
         for (const part of parts) {
             try {
-                const obj = JSON.parse(part);
+                let cleanPart = part;
+                if (cleanPart.endsWith("]")) {
+                    cleanPart = cleanPart.slice(0, -1);
+                }
+                const obj = JSON.parse(cleanPart);
                 yield obj.candidates[0].content.parts[0].text;
             } catch {
                 buffer += part;
@@ -83,10 +86,17 @@ export async function* stream_response(response) {
         }
     }
 
-    if (buffer === "]") buffer = "";
-
     if (buffer.trim().length > 0) {
-        throw new Error(`invalid JSON in stream: ${buffer}`);
+        try {
+            let finalBuffer = buffer;
+            if (finalBuffer.endsWith("]")) {
+                finalBuffer = finalBuffer.slice(0, -1);
+            }
+            const obj = JSON.parse(finalBuffer);
+            yield obj.candidates[0].content.parts[0].text;
+        } catch {
+            throw new Error(`Unable to parse JSON in stream: ${buffer}`);
+        }
     }
 }
 
