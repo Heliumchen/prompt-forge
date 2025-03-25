@@ -94,9 +94,9 @@ export function ModelSelect({ value = "", onChange }: ModelSelectProps) {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[200px] justify-between"
+          className="flex w-[200px] justify-between"
         >
-          {modelValue ? getSelectedModelLabel() : "Select Model..."}
+          <span className="truncate">{modelValue ? getSelectedModelLabel() : "Select Model..."}</span>
           <ChevronsUpDown className="opacity-50" />
         </Button>
       </PopoverTrigger>
