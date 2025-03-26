@@ -19,7 +19,6 @@ import {
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -30,19 +29,16 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Plus, Save, Play, Braces, Swords, MessageCircleOff, Settings2 } from "lucide-react";
+import { Plus, Play, Braces, Swords, MessageCircleOff, Settings2 } from "lucide-react";
 import { useProjects } from "@/contexts/ProjectContext";
 import { ModelSelect } from "@/components/model-select";
-import { TooltipContent } from "@/components/ui/tooltip";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { Tooltip } from "@/components/ui/tooltip";
-import { TooltipTrigger } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
 import { ProjectSelect } from "@/components/project-select";
 import { toast } from "sonner"
 import { IntroBlock } from "@/components/intro-block";
 import { Message, Project, Prompt } from "@/lib/storage";
 import { DialogModelSettings } from "@/components/dialog-model-settings";
+import { VersionSelect } from "@/components/version-select";
 
 
 // 定义类型来区分是处理 prompt 还是 message
@@ -77,8 +73,11 @@ export default function Page() {
 
   // 初始化时从currentProject中读取模型设置
   useEffect(() => {
-    if (currentProject?.modelConfig) {
-      setSelectedModel(`${currentProject.modelConfig.provider}/${currentProject.modelConfig.model}`);
+    if (currentProject) {
+      const currentVersion = currentProject.versions.find(v => v.id === currentProject.currentVersion);
+      if (currentVersion?.data.modelConfig) {
+        setSelectedModel(`${currentVersion.data.modelConfig.provider}/${currentVersion.data.modelConfig.model}`);
+      }
     }
   }, [currentProject]);
 
@@ -86,13 +85,24 @@ export default function Page() {
     setSelectedModel(value);
     if (currentProject) {
       const [modelProvider, modelValue] = value.split("/");
-      updateProject({
-        ...currentProject,
-        modelConfig: {
-          provider: modelProvider,
-          model: modelValue
-        }
-      });
+      const currentVersion = currentProject.versions.find(v => v.id === currentProject.currentVersion);
+      if (currentVersion) {
+        updateProject({
+          ...currentProject,
+          versions: currentProject.versions.map(v => 
+            v.id === currentVersion.id ? {
+              ...v,
+              data: {
+                ...v.data,
+                modelConfig: {
+                  provider: modelProvider,
+                  model: modelValue
+                }
+              }
+            } : v
+          )
+        });
+      }
     }
   };
 
@@ -147,8 +157,11 @@ export default function Page() {
 
   // 通用的复制函数
   const handleCopy = (id: number, type: ItemType) => {
-    const items = type === 'prompt' ? currentProject?.prompts : currentProject?.messages;
-    const item = items?.find((item) => item.id === id);
+    const currentVersion = currentProject?.versions.find(v => v.id === currentProject.currentVersion);
+    if (!currentVersion) return;
+    
+    const items = type === 'prompt' ? currentVersion.data.prompts : currentVersion.data.messages;
+    const item = items.find((item) => item.id === id);
     if (item) {
       navigator.clipboard.writeText(item.content);
       console.log(`${type} ${id} copied to clipboard`);
@@ -198,12 +211,19 @@ export default function Page() {
       return;
     }
 
+    // 获取当前版本数据
+    const currentVersion = currentProject.versions.find(v => v.id === currentProject.currentVersion);
+    if (!currentVersion) {
+      toast.error("当前版本不存在");
+      return;
+    }
+
     // 如果指定了messageId，则只使用该message之前的所有消息
     let messages;
     
     if (messageId !== undefined) {
       // 获取当前project中所有messages，按显示顺序排列
-      const allMessages = [...currentProject.messages];
+      const allMessages = [...currentVersion.data.messages];
       
       // 找到当前messageId在messages数组中的索引
       const messageIndex = allMessages.findIndex(m => m.id === messageId);
@@ -215,7 +235,7 @@ export default function Page() {
       
       // 组装消息，先添加所有prompts，再添加当前message之前的messages
       messages = [
-        ...currentProject.prompts.map(p => ({
+        ...currentVersion.data.prompts.map(p => ({
           role: p.role,
           content: p.content
         })),
@@ -229,11 +249,11 @@ export default function Page() {
     } else {
       // 如果没有指定messageId，使用所有消息
       messages = [
-        ...currentProject.prompts.map(p => ({
+        ...currentVersion.data.prompts.map(p => ({
           role: p.role,
           content: p.content
         })),
-        ...currentProject.messages.map(m => ({
+        ...currentVersion.data.messages.map(m => ({
           role: m.role,
           content: m.content
         }))
@@ -255,8 +275,8 @@ export default function Page() {
         apikey: apiKey,
         dangerouslyAllowBrowser: true,
         stream: true, // 启用流式输出
-        temperature: currentProject.modelConfig?.temperature || 1.0,
-        max_tokens: currentProject.modelConfig?.max_tokens || 1024,
+        temperature: currentVersion.data.modelConfig?.temperature || 1.0,
+        max_tokens: currentVersion.data.modelConfig?.max_tokens || 1024,
       };
 
       let generatedText = '';
@@ -362,12 +382,25 @@ export default function Page() {
       return;
     }
 
+    // 获取评估项目当前版本
+    const evaluationVersion = evaluationProject.versions.find(v => v.id === evaluationProject.currentVersion);
+    if (!evaluationVersion) {
+      toast.error("评估项目版本不存在");
+      return;
+    }
+
     setIsEvaluating(true);
     setEvaluatingTotal(rounds);
 
     try {
       // 创建一个本地变量来跟踪所有生成的消息
-      const localMessages = [...currentProject.messages];
+      const currentVersion = currentProject.versions.find(v => v.id === currentProject.currentVersion);
+      if (!currentVersion) {
+        toast.error("当前版本不存在");
+        return;
+      }
+      
+      const localMessages = [...currentVersion.data.messages];
       
       // 模拟对话轮次
       for (let i = 0; i < rounds; i++) {
@@ -377,7 +410,7 @@ export default function Page() {
         try {
           // 使用本地跟踪的消息
           const currentProjectMessages = [
-            ...currentProject.prompts.map((p: Prompt) => ({
+            ...currentVersion.data.prompts.map((p: Prompt) => ({
               role: p.role,
               content: p.content
             })),
@@ -394,8 +427,8 @@ export default function Page() {
             apikey: apiKey,
             dangerouslyAllowBrowser: true,
             stream: true,
-            temperature: currentProject.modelConfig?.temperature || 1.0,
-            max_tokens: currentProject.modelConfig?.max_tokens || 1024,
+            temperature: currentProject.versions.find(v => v.id === currentProject.currentVersion)?.data.modelConfig?.temperature || 1.0,
+            max_tokens: currentProject.versions.find(v => v.id === currentProject.currentVersion)?.data.modelConfig?.max_tokens || 1024,
           };
           
           // 创建新的assistant消息
@@ -439,7 +472,7 @@ export default function Page() {
           // 构建反转消息，使用本地消息列表
           const reversedMessages = [
             // 首先添加评估项目的system prompt
-            ...evaluationProject.prompts.map((p: Prompt) => ({
+            ...evaluationVersion.data.prompts.map((p: Prompt) => ({
               role: p.role,
               content: p.content
             })),
@@ -464,8 +497,8 @@ export default function Page() {
             apikey: apiKey,
             dangerouslyAllowBrowser: true,
             stream: true,
-            temperature: currentProject.modelConfig?.temperature || 1.0,
-            max_tokens: currentProject.modelConfig?.max_tokens || 1024,
+            temperature: currentProject.versions.find(v => v.id === currentProject.currentVersion)?.data.modelConfig?.temperature || 1.0,
+            max_tokens: currentProject.versions.find(v => v.id === currentProject.currentVersion)?.data.modelConfig?.max_tokens || 1024,
           };
           
           // 创建新的user消息
@@ -541,13 +574,24 @@ export default function Page() {
           <DialogModelSettings
             open={isModelSettingsOpen}
             onOpenChange={setIsModelSettingsOpen}
-            modelConfig={currentProject.modelConfig || { provider: "", model: "" }}
+            modelConfig={currentProject.versions.find(v => v.id === currentProject.currentVersion)?.data.modelConfig || { provider: "", model: "" }}
             onSave={(config) => {
               if (currentProject) {
-                updateProject({
-                  ...currentProject,
-                  modelConfig: config
-                });
+                const currentVersion = currentProject.versions.find(v => v.id === currentProject.currentVersion);
+                if (currentVersion) {
+                  updateProject({
+                    ...currentProject,
+                    versions: currentProject.versions.map(v => 
+                      v.id === currentVersion.id ? {
+                        ...v,
+                        data: {
+                          ...v.data,
+                          modelConfig: config
+                        }
+                      } : v
+                    )
+                  });
+                }
               }
             }}
           />
@@ -573,39 +617,22 @@ export default function Page() {
           </div>
           {currentProject ? (
             <div className="flex items-center gap-2 px-4">
-              <Select defaultValue="1">
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Select a version"  />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="1">v1</SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="secondary">
-                      <Save />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Save new version (Coming soon)</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-          </div>
+              <VersionSelect project={currentProject} />
+            </div>
           ) : null}
         </header>
         <div className="flex pl-2">
           <div className="flex flex-col rounded-xl w-1/2 p-4">
-            {/* 左侧 Prompt 编辑区 */}
             <h2 className="mb-4 font-semibold">Prompt Template</h2>
 
             {currentProject ? (
               <>
                 <ul>
-                  {currentProject.prompts.map((prompt) => (
-                    <li key={prompt.id}>
+                  {(() => {
+                    const currentVersion = currentProject.versions.find(v => v.id === currentProject.currentVersion);
+                    if (!currentVersion) return null;
+                    return currentVersion.data.prompts.map((prompt) => (
+                      <li key={prompt.id}>
                         <PromptTextarea
                           role={prompt.role}
                           content={prompt.content}
@@ -619,8 +646,9 @@ export default function Page() {
                           onDelete={() => handleDelete(prompt.id, 'prompt')}
                           isGenerating={isGenerating}
                         />
-                    </li>
-                  ))}
+                      </li>
+                    ));
+                  })()}
                 </ul>
                 <Button
                   className="mt-4"
@@ -645,28 +673,37 @@ export default function Page() {
               <>
             <h2 className="mb-4 font-semibold">Generations</h2>
             <div className="flex flex-col gap-4">
-              {
-              currentProject?.variables?.length && currentProject.variables.length > 0 ? (
-                <>
-                  <div className="flex flex-col gap-4">
-                    <h2 className="mb-4 font-semibold">Variables</h2>
-                    <p>TODO: 识别左侧的variables，用户可以给每个variable填充值</p>
-                  </div>
-                </>
-              ) : (
-              <Alert className="border-dashed">
-                <Braces className="h-4 w-4" />
-                <AlertTitle>Variables </AlertTitle>
-                <AlertDescription>
-                (Coming soon) You can create a variable in prompt template like this: {'{{variable_name}}'}
-                </AlertDescription>
-              </Alert>
-              )
-            }          
+              {(() => {
+                const currentVersion = currentProject.versions.find(v => v.id === currentProject.currentVersion);
+                if (!currentVersion) return null;
+                
+                // 检查变量
+                const hasVariables = 
+                  currentVersion.data.variables?.length > 0;
+                
+                if (hasVariables) {
+                  return (
+                    <div className="flex flex-col gap-4">
+                      <h2 className="mb-4 font-semibold">Variables</h2>
+                      <p>TODO: 识别左侧的variables，用户可以给每个variable填充值</p>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <Alert className="border-dashed">
+                      <Braces className="h-4 w-4" />
+                      <AlertTitle>Variables </AlertTitle>
+                      <AlertDescription>
+                      (Coming soon) You can create a variable in prompt template like this: {'{{variable_name}}'}
+                      </AlertDescription>
+                    </Alert>
+                  );
+                }
+              })()}          
               
               
                 <ul>
-                  {currentProject.messages.map((message) => (
+                  {currentProject.versions.find(v => v.id === currentProject.currentVersion)?.data.messages.map((message) => (
                     <li key={message.id}>
                         <PromptTextarea
                           role={message.role}

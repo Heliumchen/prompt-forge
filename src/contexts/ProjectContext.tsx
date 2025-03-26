@@ -1,7 +1,16 @@
 "use client"
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getProjects, saveProjects, Project, Prompt, Message } from '@/lib/storage';
+import { 
+  getProjects, 
+  saveProjects, 
+  Project, 
+  Prompt, 
+  Message,
+  createNewVersion as createNewVersionUtil,
+  switchVersion as switchVersionUtil,
+  updateCurrentVersion
+} from '@/lib/storage';
 import { generateUid } from '@/lib/utils';
 
 interface ProjectContextType {
@@ -14,14 +23,13 @@ interface ProjectContextType {
   addPrompt: (projectUid: string) => void;
   updatePrompt: (projectUid: string, promptId: number, data: Partial<Prompt>) => void;
   deletePrompt: (projectUid: string, promptId: number) => void;
-  // addVariable: (projectUid: string) => void;
-  // updateVariable: (projectUid: string, variableId: number, data: Partial<Variable>) => void;
-  // deleteVariable: (projectUid: string, variableId: number) => void;
   addMessage: (projectUid: string, data?: Partial<Message>) => number;
   updateMessage: (projectUid: string, messageId: number, data: Partial<Message>) => void;
   deleteMessage: (projectUid: string, messageId: number) => void;
   clearMessages: (projectUid: string) => void;
   clearPrompts: (projectUid: string) => void;
+  createNewVersion: (projectUid: string, description: string) => void;
+  switchToVersion: (projectUid: string, versionId: number) => void;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -50,14 +58,24 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
 
   // 添加新项目
   const addProject = (name: string, icon?: string, projectData?: Partial<Project>) => {
+    const now = new Date().toISOString();
     const newProject: Project = {
       uid: generateUid(),
       name,
       icon,
-      prompts: projectData?.prompts || [{id: 1, role: 'system', content: ''}],
-      messages: projectData?.messages || [],
-      variables: projectData?.variables || [],
-      modelConfig: projectData?.modelConfig
+      currentVersion: 1,
+      versions: [{
+        id: 1,
+        createdAt: now,
+        updatedAt: now,
+        description: '',
+        data: {
+          prompts: projectData?.versions?.[0]?.data?.prompts || [{id: 1, role: 'system', content: ''}],
+          messages: projectData?.versions?.[0]?.data?.messages || [],
+          variables: projectData?.versions?.[0]?.data?.variables || [],
+          modelConfig: projectData?.versions?.[0]?.data?.modelConfig
+        }
+      }]
     };
     
     setProjects(prev => [...prev, newProject]);
@@ -87,13 +105,21 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
     }
   };
 
+  // 获取当前版本数据
+  const getCurrentVersionData = (project: Project) => {
+    const currentVersion = project.versions.find(v => v.id === project.currentVersion);
+    if (!currentVersion) throw new Error('Current version not found');
+    return currentVersion.data;
+  };
+
   // 添加提示
   const addPrompt = (projectUid: string) => {
     setProjects(prev => 
       prev.map(project => {
         if (project.uid === projectUid) {
-          const newId = project.prompts.length > 0 
-            ? Math.max(...project.prompts.map(p => p.id)) + 1 
+          const currentData = getCurrentVersionData(project);
+          const newId = currentData.prompts.length > 0 
+            ? Math.max(...currentData.prompts.map(p => p.id)) + 1 
             : 1;
           
           const newPrompt: Prompt = {
@@ -102,10 +128,9 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
             content: ''
           };
           
-          const updatedProject: Project = {
-            ...project,
-            prompts: [...project.prompts, newPrompt]
-          };
+          const updatedProject = updateCurrentVersion(project, {
+            prompts: [...currentData.prompts, newPrompt]
+          });
           
           if (currentProject?.uid === projectUid) {
             setCurrentProject(updatedProject);
@@ -123,14 +148,14 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
     setProjects(prev => 
       prev.map(project => {
         if (project.uid === projectUid) {
-          const updatedPrompts = project.prompts.map(prompt => 
+          const currentData = getCurrentVersionData(project);
+          const updatedPrompts = currentData.prompts.map(prompt => 
             prompt.id === promptId ? {...prompt, ...data} : prompt
           );
           
-          const updatedProject: Project = {
-            ...project,
+          const updatedProject = updateCurrentVersion(project, {
             prompts: updatedPrompts
-          };
+          });
           
           if (currentProject?.uid === projectUid) {
             setCurrentProject(updatedProject);
@@ -148,12 +173,12 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
     setProjects(prev => 
       prev.map(project => {
         if (project.uid === projectUid) {
-          const updatedPrompts = project.prompts.filter(prompt => prompt.id !== promptId);
+          const currentData = getCurrentVersionData(project);
+          const updatedPrompts = currentData.prompts.filter(prompt => prompt.id !== promptId);
           
-          const updatedProject: Project = {
-            ...project,
+          const updatedProject = updateCurrentVersion(project, {
             prompts: updatedPrompts
-          };
+          });
           
           if (currentProject?.uid === projectUid) {
             setCurrentProject(updatedProject);
@@ -173,8 +198,9 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
     setProjects(prev => 
       prev.map(project => {
         if (project.uid === projectUid) {
-          const newId = project.messages?.length > 0 
-            ? Math.max(...project.messages.map(m => m.id)) + 1 
+          const currentData = getCurrentVersionData(project);
+          const newId = currentData.messages.length > 0 
+            ? Math.max(...currentData.messages.map(m => m.id)) + 1 
             : 1;
           
           newMessageId = newId;
@@ -185,10 +211,9 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
             content: data?.content || ''
           };
           
-          const updatedProject: Project = {
-            ...project,
-            messages: [...(project.messages || []), newMessage]
-          };
+          const updatedProject = updateCurrentVersion(project, {
+            messages: [...currentData.messages, newMessage]
+          });
           
           if (currentProject?.uid === projectUid) {
             setCurrentProject(updatedProject);
@@ -208,14 +233,14 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
     setProjects(prev => 
       prev.map(project => {
         if (project.uid === projectUid) {
-          const updatedMessages = project.messages?.map(message => 
+          const currentData = getCurrentVersionData(project);
+          const updatedMessages = currentData.messages.map(message => 
             message.id === messageId ? {...message, ...data} : message
-          ) || [];
+          );
           
-          const updatedProject: Project = {
-            ...project,
+          const updatedProject = updateCurrentVersion(project, {
             messages: updatedMessages
-          };
+          });
           
           if (currentProject?.uid === projectUid) {
             setCurrentProject(updatedProject);
@@ -233,12 +258,12 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
     setProjects(prev => 
       prev.map(project => {
         if (project.uid === projectUid) {
-          const updatedMessages = project.messages?.filter(message => message.id !== messageId) || [];
+          const currentData = getCurrentVersionData(project);
+          const updatedMessages = currentData.messages.filter(message => message.id !== messageId);
           
-          const updatedProject: Project = {
-            ...project,
+          const updatedProject = updateCurrentVersion(project, {
             messages: updatedMessages
-          };
+          });
           
           if (currentProject?.uid === projectUid) {
             setCurrentProject(updatedProject);
@@ -256,12 +281,10 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
     setProjects(prev => 
       prev.map(project => {
         if (project.uid === projectUid) {
-          const updatedProject = {
-            ...project,
+          const updatedProject = updateCurrentVersion(project, {
             messages: []
-          };
+          });
           
-          // 同步更新 currentProject
           if (currentProject?.uid === projectUid) {
             setCurrentProject(updatedProject);
           }
@@ -278,16 +301,46 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
     setProjects(prev => 
       prev.map(project => {
         if (project.uid === projectUid) {
-          const updatedProject = {
-            ...project,
+          const updatedProject = updateCurrentVersion(project, {
             prompts: []
-          };
+          });
           
-          // 同步更新 currentProject
           if (currentProject?.uid === projectUid) {
             setCurrentProject(updatedProject);
           }
           
+          return updatedProject;
+        }
+        return project;
+      })
+    );
+  };
+
+  // 创建新版本
+  const createNewVersion = (projectUid: string, description: string) => {
+    setProjects(prev => 
+      prev.map(project => {
+        if (project.uid === projectUid) {
+          const updatedProject = createNewVersionUtil(project, description);
+          if (currentProject?.uid === projectUid) {
+            setCurrentProject(updatedProject);
+          }
+          return updatedProject;
+        }
+        return project;
+      })
+    );
+  };
+
+  // 切换版本
+  const switchToVersion = (projectUid: string, versionId: number) => {
+    setProjects(prev => 
+      prev.map(project => {
+        if (project.uid === projectUid) {
+          const updatedProject = switchVersionUtil(project, versionId);
+          if (currentProject?.uid === projectUid) {
+            setCurrentProject(updatedProject);
+          }
           return updatedProject;
         }
         return project;
@@ -309,7 +362,9 @@ export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ childre
     addMessage,
     updateMessage,
     deleteMessage,
-    clearMessages
+    clearMessages,
+    createNewVersion,
+    switchToVersion
   };
 
   return (

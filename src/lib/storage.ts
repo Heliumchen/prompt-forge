@@ -26,18 +26,114 @@ export interface ModelConfig {
   top_p?: number;
 }
 
-export interface Project {
-  uid: string;
-  name: string;
-  icon?: string; // 图标名称，用于侧边栏显示
+// 版本数据接口
+export interface VersionData {
   prompts: Prompt[];
   messages: Message[];
   variables: Variable[];
-  modelConfig?: ModelConfig; // 模型配置
+  modelConfig?: ModelConfig;
+}
+
+// 版本信息接口
+export interface Version {
+  id: number;          // 版本ID，数字1,2,3...
+  createdAt: string;   // 创建时间，ISO格式
+  updatedAt: string;   // 最后修改时间，ISO格式
+  description: string; // 版本备注
+  data: VersionData;
+}
+
+// 修改后的Project接口
+export interface Project {
+  uid: string;
+  name: string;
+  icon?: string;
+  currentVersion: number;  // 当前使用的版本ID
+  versions: Version[];     // 所有版本历史
 }
 
 // 本地存储键名
 const STORAGE_KEY = 'prompt-forge-projects';
+
+// 将旧格式项目转换为新格式
+const migrateProject = (oldProject: Omit<Project, 'currentVersion' | 'versions'> & { prompts?: Prompt[], messages?: Message[], variables?: Variable[], modelConfig?: ModelConfig }): Project => {
+  const now = new Date().toISOString();
+  const version: Version = {
+    id: 1,
+    createdAt: now,
+    updatedAt: now,
+    description: '',
+    data: {
+      prompts: oldProject.prompts || [],
+      messages: oldProject.messages || [],
+      variables: oldProject.variables || [],
+      modelConfig: oldProject.modelConfig
+    }
+  };
+
+  return {
+    uid: oldProject.uid,
+    name: oldProject.name,
+    icon: oldProject.icon,
+    currentVersion: 1,
+    versions: [version]
+  };
+};
+
+// 创建新版本
+export const createNewVersion = (project: Project, description: string): Project => {
+  const now = new Date().toISOString();
+  const currentVersion = project.versions.find(v => v.id === project.currentVersion);
+  if (!currentVersion) throw new Error('Current version not found');
+
+  const newVersionNumber = project.versions.length + 1;
+  const newVersion: Version = {
+    id: newVersionNumber,
+    createdAt: now,
+    updatedAt: now,
+    description,
+    data: { ...currentVersion.data }
+  };
+
+  return {
+    ...project,
+    currentVersion: newVersion.id,
+    versions: [...project.versions, newVersion]
+  };
+};
+
+// 切换版本
+export const switchVersion = (project: Project, versionId: number): Project => {
+  const versionExists = project.versions.some(v => v.id === versionId);
+  if (!versionExists) throw new Error('Version not found');
+
+  return {
+    ...project,
+    currentVersion: versionId
+  };
+};
+
+// 更新当前版本数据
+export const updateCurrentVersion = (project: Project, data: Partial<VersionData>): Project => {
+  const now = new Date().toISOString();
+  const versionIndex = project.versions.findIndex(v => v.id === project.currentVersion);
+  if (versionIndex === -1) throw new Error('Current version not found');
+
+  const updatedVersions = [...project.versions];
+  updatedVersions[versionIndex] = {
+    ...updatedVersions[versionIndex],
+    updatedAt: now,
+    data: {
+      ...updatedVersions[versionIndex].data,
+      ...data
+    }
+  };
+
+  return {
+    ...project,
+    versions: updatedVersions
+  };
+};
 
 // 保存所有项目
 export const saveProjects = (projects: Project[]): void => {
@@ -52,9 +148,18 @@ export const saveProjects = (projects: Project[]): void => {
 export const getProjects = (): Project[] => {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
+    if (!data) return [];
+    
+    const projects = JSON.parse(data);
+    return projects.map((project: unknown) => {
+      // 检查是否需要迁移
+      if (typeof project === 'object' && project !== null && !('versions' in project)) {
+        return migrateProject(project as Omit<Project, 'versions'>);
+      }
+      return project as Project;
+    });
   } catch (error) {
-    console.error('获取项目失败:', error);
+    console.error('Error getting projects:', error);
     return [];
   }
 };
