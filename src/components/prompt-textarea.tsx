@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, forwardRef } from 'react'
 import {
     Select,
     SelectContent,
@@ -30,9 +30,11 @@ export interface PromptTextareaProps {
   placeholder?: string
   content?: string
   onChange?: (content: string) => void
+  isStreaming?: boolean
+  streamingContent?: string
 }
 
-export default function PromptTextarea({
+const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProps>(({
   role = 'system',
   onTypeChange,
   onDelete,
@@ -44,7 +46,7 @@ export default function PromptTextarea({
   onChange,
   isStreaming = false,
   streamingContent = ''
-}: PromptTextareaProps & { isStreaming?: boolean, streamingContent?: string }) {
+}, ref) => {
   const [textValue, setTextValue] = useState(content)
   const [currentRole, setCurrentRole] = useState<'system' | 'user' | 'assistant'>(role)
   const [currentPlaceholder, setCurrentPlaceholder] = useState(
@@ -77,6 +79,7 @@ export default function PromptTextarea({
   
   // 添加自动调整高度的功能
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const finalRef = (ref || textareaRef) as React.RefObject<HTMLTextAreaElement>
   
   // 添加窗口大小变化的监听
   useEffect(() => {
@@ -94,7 +97,7 @@ export default function PromptTextarea({
   
   // 修改 adjustHeight 函数，确保在下一帧执行
   const adjustHeight = () => {
-    const textarea = textareaRef.current
+    const textarea = finalRef.current
     if (textarea) {
       requestAnimationFrame(() => {
         textarea.style.height = 'auto'
@@ -204,7 +207,7 @@ export default function PromptTextarea({
             </div>                  
         </div>
         <textarea 
-          ref={textareaRef}
+          ref={finalRef}
           className="textarea w-full p-3 min-h-18 h-fit resize-none overflow-hidden focus:outline-none" 
           placeholder={currentPlaceholder}
           value={textValue}
@@ -213,5 +216,9 @@ export default function PromptTextarea({
         ></textarea>
     </div>
   )
-}
+})
+
+PromptTextarea.displayName = 'PromptTextarea'
+
+export default PromptTextarea
 

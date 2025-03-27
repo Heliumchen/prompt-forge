@@ -32,7 +32,7 @@ import {
 import { Plus, Play, Braces, Swords, MessageCircleOff, Settings2 } from "lucide-react";
 import { useProjects } from "@/contexts/ProjectContext";
 import { ModelSelect } from "@/components/model-select";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ProjectSelect } from "@/components/project-select";
 import { toast } from "sonner"
 import { IntroBlock } from "@/components/intro-block";
@@ -70,6 +70,7 @@ export default function Page() {
   const [evaluatingTotal, setEvaluatingTotal] = useState<number>(0);
   const [selectedEvaluationRound, setSelectedEvaluationRound] = useState<number>(5);
   const [isModelSettingsOpen, setIsModelSettingsOpen] = useState(false);
+  const lastUserMessageRef = useRef<HTMLTextAreaElement>(null);
 
   // 初始化时从currentProject中读取模型设置
   useEffect(() => {
@@ -180,7 +181,7 @@ export default function Page() {
     }
   };
 
-  const handleGenerate = async (messageId?: number) => {
+  const handleGenerate = useCallback(async (messageId?: number) => {
     if (!currentProject) {
       toast.error("请选择一个项目");
       return;
@@ -328,6 +329,10 @@ export default function Page() {
           role: 'user',
           content: ''
         });
+        // 使用 setTimeout 确保 DOM 已更新
+        setTimeout(() => {
+          lastUserMessageRef.current?.focus();
+        }, 0);
       }
     } catch (error: Error | unknown) {
       console.error("生成错误:", error);
@@ -336,7 +341,7 @@ export default function Page() {
       setIsGenerating(false);
       setGeneratingMessageId(null);
     }
-  };
+  }, [currentProject, selectedModel, addMessage, updateMessage, setStreamingContent, setStreamingMessageId, setIsGenerating, setGeneratingMessageId]);
 
   const handleEvaluate = async (rounds: number = 5) => {
     if (!currentProject) {
@@ -566,6 +571,31 @@ export default function Page() {
     }
   };
 
+  // 添加键盘快捷键处理
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 检查是否按下 Enter 键
+      if (e.key === 'Enter') {
+        // 检查是否按下 Command (Mac) 或 Control (Windows) 键
+        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+        const modifierKey = isMac ? e.metaKey : e.ctrlKey;
+        
+        if (modifierKey && !isGenerating) {
+          e.preventDefault(); // 阻止默认行为
+          handleGenerate();
+        }
+      }
+    };
+
+    // 添加事件监听器
+    window.addEventListener('keydown', handleKeyDown);
+
+    // 清理函数
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isGenerating, handleGenerate]); // 添加 handleGenerate 到依赖数组
+
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -703,24 +733,25 @@ export default function Page() {
               
               
                 <ul>
-                  {currentProject.versions.find(v => v.id === currentProject.currentVersion)?.data.messages.map((message) => (
+                  {currentProject.versions.find(v => v.id === currentProject.currentVersion)?.data.messages.map((message, index, array) => (
                     <li key={message.id}>
-                        <PromptTextarea
-                          role={message.role}
-                          content={message.content}
-                          isStreaming={streamingMessageId === message.id}
-                          streamingContent={streamingMessageId === message.id ? streamingContent : undefined}
-                          onChange={(content) =>
-                            handleValueChange(content, message.id, 'message')
-                          }
-                          onTypeChange={(role) =>
-                            handleTypeChange(role, message.id, 'message')
-                          }
-                          onCopy={() => handleCopy(message.id, 'message')}
-                          onDelete={() => handleDelete(message.id, 'message')}
-                          onRegenerate={message.role === 'assistant' ? () => handleGenerate(message.id) : undefined}
-                          isGenerating={isGenerating && (generatingMessageId === message.id || generatingMessageId === null)}
-                        />
+                      <PromptTextarea
+                        role={message.role}
+                        content={message.content}
+                        isStreaming={streamingMessageId === message.id}
+                        streamingContent={streamingMessageId === message.id ? streamingContent : undefined}
+                        onChange={(content) =>
+                          handleValueChange(content, message.id, 'message')
+                        }
+                        onTypeChange={(role) =>
+                          handleTypeChange(role, message.id, 'message')
+                        }
+                        onCopy={() => handleCopy(message.id, 'message')}
+                        onDelete={() => handleDelete(message.id, 'message')}
+                        onRegenerate={message.role === 'assistant' ? () => handleGenerate(message.id) : undefined}
+                        isGenerating={isGenerating && (generatingMessageId === message.id || generatingMessageId === null)}
+                        ref={message.role === 'user' && index === array.length - 1 ? lastUserMessageRef : undefined}
+                      />
                     </li>
                   ))}
                 </ul>
