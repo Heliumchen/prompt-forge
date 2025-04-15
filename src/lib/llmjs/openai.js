@@ -3,104 +3,124 @@ import { OpenAI as OpenAIClient } from "openai";
 const MODEL = "gpt-4o-mini";
 
 export default async function OpenAI(messages, options = {}, LLM = null) {
-    let apiKey = null;
-    if (typeof options.apikey === "string") {
-        apiKey = options.apikey
-    } else {
-        apiKey = process.env.OPENAI_API_KEY;
+    // 参数验证和初始化
+    if (!messages || messages.length === 0) {
+        throw new Error("No messages provided");
+    }
+    
+    const { 
+        apikey, 
+        model = MODEL, 
+        dangerouslyAllowBrowser = false,
+        stream,
+        temperature,
+        max_tokens,
+        seed,
+        response_format,
+        schema,
+        tool,
+        tools,
+        tool_choice,
+        eventEmitter
+    } = options;
+
+    // API密钥处理
+    const apiKey = (typeof apikey === "string") ? apikey : process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+        throw new Error("No OpenAI API key provided");
     }
 
-    // no fallback, either empty apikey string or env, not both
-    if (!apiKey) { throw new Error("No OpenAI API key provided") }
-
-    const dangerouslyAllowBrowser = options.dangerouslyAllowBrowser || false;
+    // 初始化客户端
     const openai = new OpenAIClient({ apiKey, dangerouslyAllowBrowser });
 
-    if (!messages || messages.length === 0) { throw new Error("No messages provided") }
-    if (!options.model) { options.model = MODEL }
-
-    let networkOptions = {};
-    if (options.stream) networkOptions.responseType = "stream";
-
-    const openaiOptions = { model: options.model };
-
-    if (options.stream) {
-        openaiOptions.stream = options.stream;
-    }
-
-    if (typeof options.temperature !== "undefined") {
-        openaiOptions.temperature = options.temperature;
-        if (openaiOptions.temperature < 0) openaiOptions.temperature = 0;
-        if (openaiOptions.temperature > 2) openaiOptions.temperature = 2;
-    }
-
-    if (typeof options.max_tokens !== "undefined") { openaiOptions.max_tokens = options.max_tokens }
-    if (typeof options.seed !== "undefined") { openaiOptions.seed = options.seed }
-
+    // 构建OpenAI选项
+    const openaiOptions = { model, messages };
     let isJSONFormat = false;
-    if (typeof options.response_format !== "undefined") {
-        isJSONFormat = true; // currently openai only supports json response_format
-        openaiOptions.response_format = options.response_format;
+    
+    // 网络选项
+    const networkOptions = stream ? { responseType: "stream" } : {};
+
+    // 流式处理
+    if (stream) {
+        openaiOptions.stream = true;
     }
 
-    if (options.schema && options.tools) { throw new Error("Cannot specify both schema and tools") }
-    if (options.schema) {
+    // 温度参数处理
+    if (typeof temperature !== "undefined") {
+        openaiOptions.temperature = Math.max(0, Math.min(temperature, 2));
+    }
+
+    // 其他基本参数
+    if (typeof max_tokens !== "undefined") openaiOptions.max_tokens = max_tokens;
+    if (typeof seed !== "undefined") openaiOptions.seed = seed;
+
+    // 响应格式处理
+    if (typeof response_format !== "undefined") {
+        isJSONFormat = true;
+        openaiOptions.response_format = response_format;
+    }
+
+    // Schema 和 Tools 互斥检查
+    if (schema && tools) {
+        throw new Error("Cannot specify both schema and tools");
+    }
+    
+    // Schema 处理
+    if (schema) {
         openaiOptions.response_format = { "type": "json_object" };
         isJSONFormat = true;
     }
 
-    if (options.tool) {
-        openaiOptions.tools = [{ "type": "function", "function": options.tool }];
-        if (options.tool_choice) { openaiOptions.tool_choice = options.tool_choice }
+    // Tools 处理
+    if (tool) {
+        openaiOptions.tools = [{ "type": "function", "function": tool }];
+        if (tool_choice) openaiOptions.tool_choice = tool_choice;
+    } else if (tools) {
+        openaiOptions.tools = tools;
+        if (tool_choice) openaiOptions.tool_choice = tool_choice;
     }
 
-    if (options.tools) {
-        openaiOptions.tools = options.tools;
-        if (options.tool_choice) { openaiOptions.tool_choice = options.tool_choice }
-    }
-
-    openaiOptions.messages = messages;
-
-    // log(`sending with options ${JSON.stringify(openaiOptions)} and network options ${JSON.stringify(networkOptions)}`);
+    // 发送请求
     const response = await openai.chat.completions.create(openaiOptions, networkOptions);
-    if (options.eventEmitter) {
-        options.eventEmitter.on('abort', () => {
+    
+    // 事件监听器处理
+    if (eventEmitter) {
+        eventEmitter.on('abort', () => {
             response.controller.abort();
             throw new Error("Request aborted");
         });
     }
 
+    // 处理工具调用响应
     if (openaiOptions.tools && response.choices[0].message.tool_calls) {
         try {
             return await OpenAI.parseTool(response, LLM);
         } catch (e) {
+            // 直接抛出错误
             throw e;
-            log("Auto tool parsing failed, trying JSON format");
         }
     }
 
-    if (options.stream) {
+    // 处理流式响应
+    if (stream) {
         return OpenAI.parseStream(response);
     }
 
+    // 处理普通响应
     const message = response.choices[0].message;
     if (!message) throw new Error(`Invalid message from OpenAI`);
 
     const content = message.content.trim();
-    if (isJSONFormat) {
-        return OpenAI.parseJSONFormat(content);
-    }
-
-    return content;
+    return isJSONFormat ? OpenAI.parseJSONFormat(content) : content;
 }
 
 OpenAI.parseJSONFormat = function (content) {
     try {
         return JSON.parse(content);
     } catch {
-        throw new Error(`Expected JSON response from OpenAI, got ${content}`)
+        throw new Error(`Expected JSON response from OpenAI, got ${content}`);
     }
-}
+};
 
 OpenAI.parseStream = async function* (response) {
     for await (const chunk of response) {
@@ -115,35 +135,32 @@ OpenAI.parseStream = async function* (response) {
 };
 
 OpenAI.parseTool = async function (response, LLM) {
-
-    const responses = [];
-
+    // 验证响应
     if (!response) throw new Error(`Invalid response from OpenAI`);
-    if (!response.choices || response.choices === 0) throw new Error(`Invalid choices from OpenAI`);
+    if (!response.choices || response.choices.length === 0) throw new Error(`Invalid choices from OpenAI`);
 
     const message = response.choices[0].message;
     if (!message) throw new Error(`Invalid message from OpenAI`);
 
-    LLM.messages.push(message);
+    // 更新消息历史
+    if (LLM && LLM.messages) {
+        LLM.messages.push(message);
+    }
 
-    // console.log("PARSE TOOL", message);
+    // 验证工具调用
     if (!message.tool_calls) throw new Error(`Invalid tool calls from OpenAI`);
+    
+    // 处理工具调用
+    const responses = [];
     for (const tool of message.tool_calls) {
-
         if (!tool.function) throw new Error(`Invalid function from OpenAI`);
         if (!tool.function.arguments) throw new Error(`Expected function call response from OpenAI`);
         responses.push(tool);
-        // const data = tool.function.arguments;
-        // try {
-        //     responses.push(JSON.parse(data));
-        // } catch (e) {
-        //     throw new Error(`Expected function call response from OpenAI for '${tool_name}' to have valid JSON arguments, got ${data}`)
-        // }
     }
 
+    // 返回结果
     if (responses.length === 0) throw new Error(`No valid responses from OpenAI`);
-    if (responses.length === 1) return responses[0];
-    return responses;
-}
+    return responses.length === 1 ? responses[0] : responses;
+};
 
 OpenAI.defaultModel = MODEL;

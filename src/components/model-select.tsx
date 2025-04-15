@@ -29,6 +29,9 @@ const models = [
       { value: "gpt-4o", label: "gpt-4o" },
       { value: "gpt-4o-mini", label: "gpt-4o-mini" },
       { value: "gpt-4.5-preview-2025-02-27", label: "gpt-4.5-preview-2025-02-27" },
+      { value: "gpt-4.1-nano-2025-04-14", label: "gpt-4.1-nano-2025-04-14" },
+      { value: "gpt-4.1-mini-2025-04-14", label: "gpt-4.1-mini-2025-04-14" },
+      { value: "gpt-4.1-2025-04-14", label: "gpt-4.1-2025-04-14" },      
     ]
   },
   {
