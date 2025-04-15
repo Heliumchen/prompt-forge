@@ -3,6 +3,7 @@ export interface Prompt {
   id: number;
   role: 'system' | 'user' | 'assistant';
   content: string;
+  image_urls?: string[]; // 存储上传图片的URL
 }
 
 export interface Variable {
@@ -14,6 +15,7 @@ export interface Message {
   id: number;
   role: 'system' | 'user' | 'assistant';
   content: string;
+  image_urls?: string[]; // 存储上传图片的URL
 }
 
 export interface ModelConfig {

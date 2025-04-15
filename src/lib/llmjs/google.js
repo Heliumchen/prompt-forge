@@ -15,10 +15,29 @@ export default async function Google(messages, options = {}) {
         .replace("[APIKEY]", apikey)
         .replace("[ACTION]", action);
 
+    // 提取 system instruction
+    const systemMessages = messages.filter(m => m.role === 'system');
+    const otherMessages = messages.filter(m => m.role !== 'system');
+    let systemInstruction = null;
+    if (systemMessages.length > 0) {
+        // 通常使用最后一条系统消息
+        const lastSystemMessage = systemMessages[systemMessages.length - 1];
+        systemInstruction = {
+            parts: [{ text: lastSystemMessage.content }]
+        };
+    }
+
+    // 使用 await Promise.all 等待 toGoogle 返回的 Promise 数组
+    const contents = await Promise.all(toGoogle(otherMessages));
     const body = {
-        contents: toGoogle(messages),
+        contents: contents, // 使用解析后的 contents
         generationConfig: {},
     };
+    
+    // 添加 system_instruction (如果存在)
+    if (systemInstruction) {
+        body.system_instruction = systemInstruction;
+    }
 
 
     if (typeof options.max_tokens === "number") { body.generationConfig.maxOutputTokens = options.max_tokens }
@@ -46,7 +65,7 @@ export default async function Google(messages, options = {}) {
         return stream_response(response);
     } else {
         const data = await response.json();
-        console.log(data.candidates[0].content.parts[0].text);
+        // console.log(data.candidates[0].content.parts[0].text);
 
         return data.candidates[0].content.parts[0].text;
     }
@@ -121,18 +140,66 @@ function toGoogleRole(role) {
         case "model":
             return role;
         case "assistant":
-        case "system":
+            // Google API 需要将 assistant 映射为 model
             return "model";
+        // system role 在 Google 函数中单独处理，不应传递到这里
+        // case "system":
+        //     return "model"; 
         default:
+            // 如果遇到未知的非 system role，抛出错误
             throw new Error(`unknown Google role ${role}`);
     }
 }
+
+// 将 toGoogle 声明为 async 函数
+async function _createImagePart(url) {
+    try {
+        // console.log(`Fetching image from: ${url}`);
+        const response = await fetch(url);
+        if (!response.ok) {
+            console.error(`Failed to fetch image from ${url}: ${response.statusText}`);
+            return null; // 跳过无法获取的图片
+        }
+        let mimeType = response.headers.get("content-type");
+        if (!mimeType || !mimeType.startsWith('image/')) {
+            if (url.endsWith(".png")) mimeType = "image/png";
+            else if (url.endsWith(".webp")) mimeType = "image/webp";
+            else if (url.endsWith(".gif")) mimeType = "image/gif";
+            else mimeType = "image/jpeg";
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        const base64Data = Buffer.from(arrayBuffer).toString('base64');
+
+        return {
+            inline_data: {
+                mime_type: mimeType,
+                data: base64Data
+            }
+        };
+    } catch (error) {
+        console.error(`Error processing image URL ${url}:`, error);
+        return null; // 出错时跳过此图片
+    }
+}
+
 function toGoogle(messages) {
-    return messages.map((message) => {
+    return messages.map(async (message) => {
+        const parts = [];
+        if (message.image_urls && Array.isArray(message.image_urls) && message.image_urls.length > 0) {
+            const imagePartsPromises = message.image_urls.map(_createImagePart); // 使用辅助函数
+            const resolvedImageParts = await Promise.all(imagePartsPromises);
+            parts.push(...resolvedImageParts.filter(part => part !== null));
+        }
+
+         if (message.content) {
+             parts.push({ text: message.content });
+         }
+
         return {
             role: toGoogleRole(message.role),
-            parts: [{ text: message.content }]
-        }
+            parts: parts
+        };
     });
 }
 

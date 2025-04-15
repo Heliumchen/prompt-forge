@@ -107,6 +107,50 @@ export default function Page() {
     }
   };
 
+  // 处理图片添加
+  const handleImageAdd = (id: number, type: ItemType, urls: string[]) => {
+    if (currentProject) {
+      const currentVersion = currentProject.versions.find(v => v.id === currentProject.currentVersion);
+      if (currentVersion) {
+        if (type === 'prompt') {
+          const prompt = currentVersion.data.prompts.find(p => p.id === id);
+          if (prompt) {
+            const newImageUrls = [...(prompt.image_urls || []), ...urls];
+            updatePrompt(currentProject.uid, id, { image_urls: newImageUrls });
+          }
+        } else { // type === 'message'
+          const message = currentVersion.data.messages.find(m => m.id === id);
+          if (message && message.role === 'user') { // Only user messages can have images added via UI
+            const newImageUrls = [...(message.image_urls || []), ...urls];
+            updateMessage(currentProject.uid, id, { image_urls: newImageUrls });
+          }
+        }
+      }
+    }
+  };
+
+  // 处理图片移除
+  const handleImageRemove = (id: number, type: ItemType, urlToRemove: string) => {
+    if (currentProject) {
+      const currentVersion = currentProject.versions.find(v => v.id === currentProject.currentVersion);
+      if (currentVersion) {
+        if (type === 'prompt') {
+          const prompt = currentVersion.data.prompts.find(p => p.id === id);
+          if (prompt && prompt.image_urls) {
+            const newImageUrls = prompt.image_urls.filter(url => url !== urlToRemove);
+            updatePrompt(currentProject.uid, id, { image_urls: newImageUrls });
+          }
+        } else { // type === 'message'
+          const message = currentVersion.data.messages.find(m => m.id === id);
+          if (message && message.role === 'user' && message.image_urls) {
+            const newImageUrls = message.image_urls.filter(url => url !== urlToRemove);
+            updateMessage(currentProject.uid, id, { image_urls: newImageUrls });
+          }
+        }
+      }
+    }
+  };
+
   // 通用的添加函数
   const handleAdd = (type: ItemType) => {
     if (currentProject) {
@@ -242,7 +286,8 @@ export default function Page() {
         })),
         ...allMessages.slice(0, messageIndex).map(m => ({
           role: m.role,
-          content: m.content
+          content: m.content,
+          image_urls: m.image_urls || []
         }))
       ];
       
@@ -256,7 +301,8 @@ export default function Page() {
         })),
         ...currentVersion.data.messages.map(m => ({
           role: m.role,
-          content: m.content
+          content: m.content,
+          image_urls: m.image_urls || []
         }))
       ];
     }
@@ -421,7 +467,8 @@ export default function Page() {
             })),
             ...localMessages.map((m: Message) => ({
               role: m.role,
-              content: m.content
+              content: m.content,
+              image_urls: m.image_urls
             }))
           ];
           
@@ -487,7 +534,8 @@ export default function Page() {
                                   (m.role === 'user' ? 'assistant' : m.role);
               return {
                 role: reversedRole as "system" | "user" | "assistant",
-                content: m.content
+                content: m.content,
+                image_urls: m.image_urls
               };
             })
             // 注意：不需要再添加assistantContent，因为它已经包含在localMessages中
@@ -666,6 +714,7 @@ export default function Page() {
                         <PromptTextarea
                           role={prompt.role}
                           content={prompt.content}
+                          imageUrls={prompt.image_urls || []}
                           onChange={(content) =>
                             handleValueChange(content, prompt.id, 'prompt')
                           }
@@ -674,6 +723,8 @@ export default function Page() {
                           }
                           onCopy={() => handleCopy(prompt.id, 'prompt')}
                           onDelete={() => handleDelete(prompt.id, 'prompt')}
+                          onImageAdd={(urls) => handleImageAdd(prompt.id, 'prompt', urls)}
+                          onImageRemove={(url) => handleImageRemove(prompt.id, 'prompt', url)}
                           isGenerating={isGenerating}
                         />
                       </li>
@@ -749,6 +800,9 @@ export default function Page() {
                         onCopy={() => handleCopy(message.id, 'message')}
                         onDelete={() => handleDelete(message.id, 'message')}
                         onRegenerate={message.role === 'assistant' ? () => handleGenerate(message.id) : undefined}
+                        imageUrls={message.image_urls || []}
+                        onImageAdd={message.role === 'user' ? (urls) => handleImageAdd(message.id, 'message', urls) : undefined}
+                        onImageRemove={message.role === 'user' ? (url) => handleImageRemove(message.id, 'message', url) : undefined}
                         isGenerating={isGenerating && (generatingMessageId === message.id || generatingMessageId === null)}
                         ref={message.role === 'user' && index === array.length - 1 ? lastUserMessageRef : undefined}
                       />

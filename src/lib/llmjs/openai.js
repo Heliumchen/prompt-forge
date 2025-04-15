@@ -33,8 +33,23 @@ export default async function OpenAI(messages, options = {}, LLM = null) {
     // 初始化客户端
     const openai = new OpenAIClient({ apiKey, dangerouslyAllowBrowser });
 
+    // 处理 messages 包含 image_urls 的情况
+    const processedMessages = messages.map(message => {
+        if (message.image_urls && Array.isArray(message.image_urls) && message.image_urls.length > 0) {
+            const content = [{ type: "text", text: message.content }];
+            message.image_urls.forEach(url => {
+                content.push({
+                    type: "image_url",
+                    image_url: { url: url }
+                });
+            });
+            return { role: message.role, content };
+        }
+        return message; // 保持原始消息结构
+    });
+
     // 构建OpenAI选项
-    const openaiOptions = { model, messages };
+    const openaiOptions = { model, messages: processedMessages };
     let isJSONFormat = false;
     
     // 网络选项
