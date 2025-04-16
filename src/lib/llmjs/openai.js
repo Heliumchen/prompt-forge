@@ -1,4 +1,5 @@
 import { OpenAI as OpenAIClient } from "openai";
+import { imageUrlToBase64 } from "./utils.js";
 
 const MODEL = "gpt-4o-mini";
 
@@ -33,22 +34,76 @@ export default async function OpenAI(messages, options = {}, LLM = null) {
     // 初始化客户端
     const openai = new OpenAIClient({ apiKey, dangerouslyAllowBrowser });
 
-    // 处理 messages 包含 image_urls 的情况
-    const processedMessages = messages.map(message => {
+    // 异步处理 messages 包含 image_urls 的情况
+    const processedMessagesPromises = messages.map(async (message) => {
         if (message.image_urls && Array.isArray(message.image_urls) && message.image_urls.length > 0) {
-            const content = [{ type: "text", text: message.content }];
-            message.image_urls.forEach(url => {
-                content.push({
-                    type: "image_url",
-                    image_url: { url: url }
-                });
+            const imageContentPromises = message.image_urls.map(async (url) => {
+                try {
+                    // Call the utility function to get base64 data URL
+                    const base64DataUrl = await imageUrlToBase64(url);
+                    return {
+                        type: "image_url",
+                        image_url: { url: base64DataUrl } // Use the base64 data URL
+                    };
+                } catch (error) {
+                    // Log error and return null for failed images
+                    console.error(`Skipping image due to error processing URL ${url}:`, error);
+                    return null;
+                }
             });
-            return { role: message.role, content };
+
+            // Wait for all image conversions for this message
+            const imageContents = (await Promise.all(imageContentPromises)).filter(content => content !== null); // Filter out nulls (errors)
+
+            // Construct the content array
+            const content = [];
+            if (message.content) { // Add text part if it exists
+                content.push({ type: "text", text: message.content });
+            }
+
+            // Add successfully processed images
+            content.push(...imageContents);
+
+            // If content is empty (no text and all images failed), return null to filter out this message
+            if (content.length === 0) {
+                 console.warn(`Message has no content after image processing failures:`, message);
+                 return null;
+            }
+             // If only text remains (all images failed), return the simplified text message structure
+             if (content.length === 1 && content[0].type === "text" && imageContents.length === 0) {
+                 return { role: message.role, content: content[0].text };
+             }
+
+
+            return { role: message.role, content }; // Return message with mixed content
         }
-        return message; // 保持原始消息结构
+
+        // Keep messages that don't need image processing as they are
+        // (Assuming text-only messages have content as string,
+        // and already processed/complex messages have content as array)
+        if (typeof message.content === 'string' || Array.isArray(message.content)) {
+             return message;
+         }
+
+         // Warn about unexpected format and return it as is (or could throw an error)
+         console.warn("Unexpected message format encountered, passing through:", message);
+         return message;
     });
 
-    // 构建OpenAI选项
+    // Wait for all message processing promises and filter out nulls (failed messages)
+    const processedMessages = (await Promise.all(processedMessagesPromises)).filter(msg => msg !== null);
+
+    // Check if all messages failed processing
+    if (processedMessages.length === 0 && messages.length > 0) {
+        throw new Error("All messages failed processing (likely due to image fetching/conversion errors).");
+    }
+    // Check if messages array is empty before sending
+    if (processedMessages.length === 0) {
+        throw new Error("No valid messages remaining to send after processing.");
+    }
+
+
+    // 构建OpenAI选项 (using the processed messages)
     const openaiOptions = { model, messages: processedMessages };
     let isJSONFormat = false;
     
@@ -71,8 +126,17 @@ export default async function OpenAI(messages, options = {}, LLM = null) {
 
     // 响应格式处理
     if (typeof response_format !== "undefined") {
-        isJSONFormat = true;
-        openaiOptions.response_format = response_format;
+        // Ensure it's the correct object structure expected by OpenAI
+        if (typeof response_format === 'object' && response_format !== null && response_format.type) {
+             openaiOptions.response_format = response_format;
+             if (response_format.type === 'json_object') {
+                 isJSONFormat = true;
+             }
+        } else {
+             console.warn("Invalid response_format provided, expected an object like { type: 'json_object' } or { type: 'text' }.");
+             // Decide if you want to throw an error or ignore it. Ignoring for now.
+        }
+
     }
 
     // Schema 和 Tools 互斥检查
@@ -80,7 +144,7 @@ export default async function OpenAI(messages, options = {}, LLM = null) {
         throw new Error("Cannot specify both schema and tools");
     }
     
-    // Schema 处理
+    // Schema 处理 (now correctly sets isJSONFormat if schema is provided)
     if (schema) {
         openaiOptions.response_format = { "type": "json_object" };
         isJSONFormat = true;
@@ -101,8 +165,15 @@ export default async function OpenAI(messages, options = {}, LLM = null) {
     // 事件监听器处理
     if (eventEmitter) {
         eventEmitter.on('abort', () => {
-            response.controller.abort();
-            throw new Error("Request aborted");
+            // Check if the response object and controller exist before aborting
+            if (response && response.controller && typeof response.controller.abort === 'function') {
+                 response.controller.abort();
+                 console.log("OpenAI request aborted by eventEmitter.");
+                 // Decide if throwing an error here is appropriate or if the caller handles the abort event
+                 // throw new Error("Request aborted"); // Maybe not throw here, let caller handle
+            } else {
+                 console.warn("Could not abort OpenAI request: controller not available.");
+            }
         });
     }
 

@@ -17,6 +17,7 @@ import {
   
 import { Button } from '@/components/ui/button'
 import { Copy, Delete, RefreshCw, ImageIcon, X } from 'lucide-react'
+import Image from 'next/image'
 
 // TODO: 编辑器考虑支持markdown https://www.blocknotejs.org/
 
@@ -353,9 +354,11 @@ const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProps>(({
             <div className="flex flex-wrap gap-2">
               {images.map((url, index) => (
                 <div key={index} className="relative group">
-                  <img 
-                    src={url} 
-                    alt={`Uploaded ${index + 1}`} 
+                  <Image
+                    src={url}
+                    alt={`Uploaded ${index + 1}`}
+                    width={80}
+                    height={80}
                     className="h-20 w-20 object-cover rounded"
                   />
                   <button 

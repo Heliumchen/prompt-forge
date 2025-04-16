@@ -1,3 +1,5 @@
+import { imageUrlToBase64 } from "./utils.js"; // Import the function
+
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/[MODEL]:[ACTION]?key=[APIKEY]";
 const MODEL = "gemini-2.0-flash-lite";
 
@@ -151,26 +153,23 @@ function toGoogleRole(role) {
     }
 }
 
-// 将 toGoogle 声明为 async 函数
+// Updated _createImagePart to use imageUrlToBase64
 async function _createImagePart(url) {
     try {
-        // console.log(`Fetching image from: ${url}`);
-        const response = await fetch(url);
-        if (!response.ok) {
-            console.error(`Failed to fetch image from ${url}: ${response.statusText}`);
-            return null; // 跳过无法获取的图片
-        }
-        let mimeType = response.headers.get("content-type");
-        if (!mimeType || !mimeType.startsWith('image/')) {
-            if (url.endsWith(".png")) mimeType = "image/png";
-            else if (url.endsWith(".webp")) mimeType = "image/webp";
-            else if (url.endsWith(".gif")) mimeType = "image/gif";
-            else mimeType = "image/jpeg";
+        // console.log(`Processing image URL: ${url}`);
+        const base64DataUrl = await imageUrlToBase64(url); // Use the utility function
+
+        // Parse the Data URL (e.g., "data:image/jpeg;base64,ActualBase64Data==")
+        const match = base64DataUrl.match(/^data:(image\/[a-zA-Z+.-]+);base64,(.*)$/);
+        if (!match) {
+            console.error(`Failed to parse Base64 Data URL: ${base64DataUrl.substring(0, 100)}...`);
+            return null; // Skip if parsing fails
         }
 
-        const arrayBuffer = await response.arrayBuffer();
-        const base64Data = Buffer.from(arrayBuffer).toString('base64');
+        const mimeType = match[1];
+        const base64Data = match[2];
 
+        // console.log(`Successfully processed image: ${url}, MIME Type: ${mimeType}`);
         return {
             inline_data: {
                 mime_type: mimeType,
@@ -178,26 +177,61 @@ async function _createImagePart(url) {
             }
         };
     } catch (error) {
-        console.error(`Error processing image URL ${url}:`, error);
-        return null; // 出错时跳过此图片
+        // Log the error from imageUrlToBase64 or parsing
+        console.error(`Error processing image URL ${url} with imageUrlToBase64:`, error);
+        return null; // Skip this image on error
     }
 }
 
+// Updated toGoogle to correctly map messages and handle image processing
 function toGoogle(messages) {
+    // Use map and filter out any null results from async processing
     return messages.map(async (message) => {
-        const parts = [];
-        if (message.image_urls && Array.isArray(message.image_urls) && message.image_urls.length > 0) {
-            const imagePartsPromises = message.image_urls.map(_createImagePart); // 使用辅助函数
-            const resolvedImageParts = await Promise.all(imagePartsPromises);
-            parts.push(...resolvedImageParts.filter(part => part !== null));
+        // Validate message structure
+        if (!message || typeof message.role !== 'string' || (typeof message.content !== 'string' && !Array.isArray(message.image_urls))) {
+            console.warn("Skipping invalid message structure:", message);
+            return null; // Skip malformed messages
         }
 
-         if (message.content) {
-             parts.push({ text: message.content });
-         }
+        const parts = [];
+        let hasContent = false; // Track if the message will have any content
+
+        // 1. Process Image URLs
+        if (message.image_urls && Array.isArray(message.image_urls) && message.image_urls.length > 0) {
+            const imagePartsPromises = message.image_urls
+                .filter(url => typeof url === 'string' && url.trim() !== '') // Filter out invalid URLs
+                .map(_createImagePart);
+            const resolvedImageParts = await Promise.all(imagePartsPromises);
+            const validImageParts = resolvedImageParts.filter(part => part !== null); // Filter out failed parts
+            if (validImageParts.length > 0) {
+                parts.push(...validImageParts);
+                hasContent = true;
+            }
+        }
+
+        // 2. Process Text Content
+        if (typeof message.content === 'string' && message.content.trim() !== '') {
+            parts.push({ text: message.content.trim() });
+            hasContent = true;
+        }
+
+        // 3. Validate Role and Ensure Content
+        let role;
+        try {
+            role = toGoogleRole(message.role);
+        } catch {
+            console.warn(`Skipping message due to invalid role: ${message.role}`);
+            return null; // Skip message if role is invalid
+        }
+
+        // If after processing, there are no parts, skip the message
+        if (!hasContent) {
+            console.warn(`Skipping message with role '${message.role}' because it has no valid content after processing.`);
+            return null;
+        }
 
         return {
-            role: toGoogleRole(message.role),
+            role: role,
             parts: parts
         };
     });
