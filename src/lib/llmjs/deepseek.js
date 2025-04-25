@@ -55,7 +55,8 @@ DeepSeek.defaultModel = MODEL;
 // TODO: refactor this to a common stream_response
 export async function* stream_response(response) {
     const textDecoder = new TextDecoder();
-
+    let hasOutputReasoning = false;
+    let hasOutputContent = false;
     for await (const chunk of response.body) {
         let data = textDecoder.decode(chunk);
 
@@ -77,8 +78,17 @@ export async function* stream_response(response) {
             try {
                 const obj = JSON.parse(buffer);
                 buffer = "";
+                if (obj.choices[0].delta.reasoning_content) {
+                    yield obj.choices[0].delta.reasoning_content;
+                    hasOutputReasoning = true;
+                }
+
                 if (obj.choices[0].delta.content) {
+                    if (hasOutputReasoning && !hasOutputContent) {
+                        yield "\n\n---(End of reasoning)---\n\n";
+                    }
                     yield obj.choices[0].delta.content;
+                    hasOutputContent = true;
                 }
             } catch {
                 // do nothing, just continue
