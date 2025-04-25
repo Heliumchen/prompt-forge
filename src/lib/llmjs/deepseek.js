@@ -77,9 +77,11 @@ export async function* stream_response(response) {
             try {
                 const obj = JSON.parse(buffer);
                 buffer = "";
-                yield obj.choices[0].delta.content;
+                if (obj.choices[0].delta.content) {
+                    yield obj.choices[0].delta.content;
+                }
             } catch {
-
+                // do nothing, just continue
             }
         }
     }
