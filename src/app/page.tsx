@@ -1,6 +1,6 @@
 "use client";
 
-import LLM from "@/lib/llmjs";
+import { LLMClient } from "@/lib/openrouter";
 import { AppSidebar } from "@/components/app-sidebar";
 
 import PromptTextarea from "@/components/prompt-textarea";
@@ -76,8 +76,8 @@ export default function Page() {
   useEffect(() => {
     if (currentProject) {
       const currentVersion = currentProject.versions.find(v => v.id === currentProject.currentVersion);
-      if (currentVersion?.data.modelConfig) {
-        setSelectedModel(`${currentVersion.data.modelConfig.provider}/${currentVersion.data.modelConfig.model}`);
+      if (currentVersion?.data.modelConfig?.model) {
+        setSelectedModel(currentVersion.data.modelConfig.model);
       }
     }
   }, [currentProject]);
@@ -85,7 +85,6 @@ export default function Page() {
   const handleModelChange = (value: string) => {
     setSelectedModel(value);
     if (currentProject) {
-      const [modelProvider, modelValue] = value.split("/");
       const currentVersion = currentProject.versions.find(v => v.id === currentProject.currentVersion);
       if (currentVersion) {
         updateProject({
@@ -96,8 +95,8 @@ export default function Page() {
               data: {
                 ...v.data,
                 modelConfig: {
-                  provider: modelProvider,
-                  model: modelValue
+                  provider: "OpenRouter",
+                  model: value
                 }
               }
             } : v
@@ -236,23 +235,17 @@ export default function Page() {
       return;
     }
 
-    // 从selectedModel中解析provider和model
-    const [provider, model] = selectedModel.split("/");
-    if (!provider || !model) {
-      toast.error("模型格式错误");
-      return;
-    }
-
-    // 从localStorage获取API key
+    // 从localStorage获取OpenRouter API key
     const apiKeysStr = localStorage.getItem('apiKeys');
     if (!apiKeysStr) {
-      toast.error(`请在设置中配置 ${provider} 的API密钥`);
+      toast.error('请在设置中配置OpenRouter API密钥');
       return;
     }
     const apiKeys = JSON.parse(apiKeysStr);
-    const apiKey = apiKeys[provider];
+    const apiKey = apiKeys.OpenRouter;
+    
     if (!apiKey) {
-      toast.error(`请在设置中配置 ${provider} 的API密钥`);
+      toast.error('请在设置中配置OpenRouter API密钥');
       return;
     }
 
@@ -282,7 +275,8 @@ export default function Page() {
       messages = [
         ...currentVersion.data.prompts.map(p => ({
           role: p.role,
-          content: p.content
+          content: p.content,
+          image_urls: p.image_urls
         })),
         ...allMessages.slice(0, messageIndex).map(m => ({
           role: m.role,
@@ -297,7 +291,8 @@ export default function Page() {
       messages = [
         ...currentVersion.data.prompts.map(p => ({
           role: p.role,
-          content: p.content
+          content: p.content,
+          image_urls: p.image_urls
         })),
         ...currentVersion.data.messages.map(m => ({
           role: m.role,
@@ -316,16 +311,8 @@ export default function Page() {
     setGeneratingMessageId(messageId || null);
     
     try {
-      const options = {
-        model,
-        service: provider.toLowerCase(),
-        apikey: apiKey,
-        dangerouslyAllowBrowser: true,
-        stream: true, // 启用流式输出
-        temperature: currentVersion.data.modelConfig?.temperature || 1.0,
-        max_tokens: currentVersion.data.modelConfig?.max_tokens || 1024,
-      };
-
+      const client = new LLMClient(apiKey);
+      
       let generatedText = '';
       let newMessageId: number | undefined;
       
@@ -342,8 +329,16 @@ export default function Page() {
         });
       }
 
-      const llm = new LLM(messages, options);
-      const stream = await llm.send();
+      setStreamingMessageId(newMessageId);
+
+      const options = {
+        model: selectedModel,
+        stream: true,
+        temperature: currentVersion.data.modelConfig?.temperature || 1.0,
+        max_tokens: currentVersion.data.modelConfig?.max_tokens || 1024,
+      };
+
+      const stream = await client.chat(messages, options);
       
       // 处理流式输出
       for await (const chunk of stream) {
@@ -363,7 +358,6 @@ export default function Page() {
       setStreamingContent(generatedText);
 
       // 在完全处理完后再重置流式状态
-      // 可以添加一个小延迟确保状态已更新
       setTimeout(() => {
         setStreamingMessageId(null);
         setStreamingContent('');
@@ -405,23 +399,17 @@ export default function Page() {
       return;
     }
 
-    // 从selectedModel中解析provider和model
-    const [provider, model] = selectedModel.split("/");
-    if (!provider || !model) {
-      toast.error("模型格式错误");
-      return;
-    }
-
-    // 从localStorage获取API key
+    // 从localStorage获取OpenRouter API key
     const apiKeysStr = localStorage.getItem('apiKeys');
     if (!apiKeysStr) {
-      toast.error(`请在设置中配置 ${provider} 的API密钥`);
+      toast.error('请在设置中配置OpenRouter API密钥');
       return;
     }
     const apiKeys = JSON.parse(apiKeysStr);
-    const apiKey = apiKeys[provider];
+    const apiKey = apiKeys.OpenRouter;
+    
     if (!apiKey) {
-      toast.error(`请在设置中配置 ${provider} 的API密钥`);
+      toast.error('请在设置中配置OpenRouter API密钥');
       return;
     }
 
@@ -473,15 +461,7 @@ export default function Page() {
           ];
           
           // 生成assistant回复（流式）
-          const assistantOptions = {
-            model,
-            service: provider.toLowerCase(),
-            apikey: apiKey,
-            dangerouslyAllowBrowser: true,
-            stream: true,
-            temperature: currentProject.versions.find(v => v.id === currentProject.currentVersion)?.data.modelConfig?.temperature || 1.0,
-            max_tokens: currentProject.versions.find(v => v.id === currentProject.currentVersion)?.data.modelConfig?.max_tokens || 1024,
-          };
+          const client = new LLMClient(apiKey);
           
           // 创建新的assistant消息
           const assistantMessageId = addMessage(currentProject.uid, {
@@ -493,8 +473,14 @@ export default function Page() {
           setStreamingMessageId(assistantMessageId);
           
           let assistantContent = '';
-          const assistantLLM = new LLM(currentProjectMessages, assistantOptions);
-          const assistantStream = await assistantLLM.send();
+          const assistantOptions = {
+            model: selectedModel,
+            stream: true,
+            temperature: currentProject.versions.find(v => v.id === currentProject.currentVersion)?.data.modelConfig?.temperature || 1.0,
+            max_tokens: currentProject.versions.find(v => v.id === currentProject.currentVersion)?.data.modelConfig?.max_tokens || 1024,
+          };
+          
+          const assistantStream = await client.chat(currentProjectMessages, assistantOptions);
           
           // 处理流式输出
           for await (const chunk of assistantStream) {
@@ -545,10 +531,7 @@ export default function Page() {
           
           // 生成user回复（流式）
           const userOptions = {
-            model,
-            service: provider.toLowerCase(),
-            apikey: apiKey,
-            dangerouslyAllowBrowser: true,
+            model: selectedModel,
             stream: true,
             temperature: currentProject.versions.find(v => v.id === currentProject.currentVersion)?.data.modelConfig?.temperature || 1.0,
             max_tokens: currentProject.versions.find(v => v.id === currentProject.currentVersion)?.data.modelConfig?.max_tokens || 1024,
@@ -564,8 +547,7 @@ export default function Page() {
           setStreamingMessageId(userMessageId);
           
           let userContent = '';
-          const userLLM = new LLM(reversedMessages, userOptions);
-          const userStream = await userLLM.send();
+          const userStream = await client.chat(reversedMessages, userOptions);
           
           // 处理流式输出
           for await (const chunk of userStream) {

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown } from "lucide-react"
+import { Check, ChevronsUpDown, RefreshCw } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -18,52 +18,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-
-const models = [
-  {
-    provider: "OpenAI",
-    items: [
-      { value: "o1", label: "o1" },
-      { value: "o1-mini", label: "o1-mini" },
-      { value: "o3-mini", label: "o3-mini" },
-      { value: "gpt-4o", label: "gpt-4o" },
-      { value: "gpt-4o-mini", label: "gpt-4o-mini" },
-      { value: "gpt-4.5-preview-2025-02-27", label: "gpt-4.5-preview-2025-02-27" },
-      { value: "gpt-4.1-nano-2025-04-14", label: "gpt-4.1-nano-2025-04-14" },
-      { value: "gpt-4.1-mini-2025-04-14", label: "gpt-4.1-mini-2025-04-14" },
-      { value: "gpt-4.1-2025-04-14", label: "gpt-4.1-2025-04-14" },      
-    ]
-  },
-  {
-    provider: "Google",
-    items: [
-      { value: "gemini-2.5-flash-preview-05-20", label: "gemini-2.5-flash-preview-05-20" },
-      { value: "gemini-2.5-pro-preview-05-065", label: "gemini-2.5-pro-preview-05-06" },
-      { value: "gemini-2.0-flash", label: "gemini-2.0-flash" },
-      { value: "gemini-2.0-flash-lite", label: "gemini-2.0-flash-lite" },      
-      { value: "gemini-1.5-pro", label: "gemini-1.5-pro" },
-      { value: "gemini-1.5-flash", label: "gemini-1.5-flash" }
-    ]
-  },
-  {
-    provider: "Anthropic",
-    items: [
-      { value: "claude-3-7-sonnet-latest", label: "claude-3-7-sonnet-latest" },
-      { value: "claude-3-5-haiku-latest", label: "claude-3-5-haiku-latest" },
-      { value: "claude-3-5-sonnet-latest", label: "claude-3-5-sonnet-latest" },
-      { value: "claude-3-opus-latest", label: "claude-3-opus-latest" },
-      { value: "claude-3-sonnet-20240229", label: "claude-3-sonnet-20240229" },
-      { value: "claude-3-haiku-20240307", label: "claude-3-haiku-20240307" }
-    ]
-  },
-  {
-    provider: "DeepSeek",
-    items: [
-      { value: "deepseek-chat", label: "deepseek-chat" },
-      { value: "deepseek-reasoner", label: "deepseek-reasoner" }
-    ]
-  }
-]
+import { LLMClient } from "@/lib/openrouter"
+import { ModelGroup } from "@/lib/openrouter/types"
+import { toast } from "sonner"
 
 interface ModelSelectProps {
   value?: string;
@@ -72,23 +29,71 @@ interface ModelSelectProps {
 
 export function ModelSelect({ value = "", onChange }: ModelSelectProps) {
   const [open, setOpen] = React.useState(false)
-  const [modelValue, setModelValue] = React.useState(value)
+  const [models, setModels] = React.useState<ModelGroup[]>([])
+  const [loading, setLoading] = React.useState(false)
+  const [selectedModel, setSelectedModel] = React.useState(value)
 
-  // 初始化时从value中解析provider和modelValue
-  React.useEffect(() => {
-    if (value) {
-      const [, modelValue] = value.split("/")
-      setModelValue(modelValue)
+  // 加载模型列表
+  const loadModels = React.useCallback(async () => {
+    setLoading(true)
+    try {
+      // 从localStorage获取OpenRouter API密钥
+      const apiKeysStr = localStorage.getItem('apiKeys')
+      if (!apiKeysStr) {
+        toast.error('请先配置OpenRouter API密钥')
+        return
+      }
+      
+      const apiKeys = JSON.parse(apiKeysStr)
+      const openRouterKey = apiKeys.OpenRouter
+      
+      if (!openRouterKey) {
+        toast.error('请先配置OpenRouter API密钥')
+        return
+      }
+
+      const client = new LLMClient(openRouterKey)
+      const groupedModels = await client.getGroupedModels()
+      setModels(groupedModels)
+    } catch (error) {
+      console.error('Failed to load models:', error)
+      toast.error('加载模型列表失败')
+    } finally {
+      setLoading(false)
     }
+  }, [])
+
+  // 组件挂载时加载模型
+  React.useEffect(() => {
+    loadModels()
+  }, [loadModels])
+
+  // 同步外部value
+  React.useEffect(() => {
+    setSelectedModel(value)
   }, [value])
 
   // 查找当前选中模型的标签
   const getSelectedModelLabel = () => {
     for (const group of models) {
-      const foundModel = group.items.find(item => item.value === modelValue)
-      if (foundModel) return foundModel.label
+      const foundModel = group.models.find(model => model.id === selectedModel)
+      if (foundModel) {
+        return foundModel.name
+      }
     }
-    return "Select Model..."
+    return selectedModel || "Select Model..."
+  }
+
+  const handleModelSelect = (modelId: string) => {
+    setSelectedModel(modelId)
+    setOpen(false)
+    onChange?.(modelId)
+  }
+
+  const handleRefresh = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    LLMClient.clearCache()
+    loadModels()
   }
 
   return (
@@ -98,37 +103,51 @@ export function ModelSelect({ value = "", onChange }: ModelSelectProps) {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="flex w-[200px] justify-between"
+          className="flex w-[300px] justify-between"
+          disabled={loading}
         >
-          <span className="truncate">{modelValue ? getSelectedModelLabel() : "Select Model..."}</span>
-          <ChevronsUpDown className="opacity-50" />
+          <span className="truncate">
+            {loading ? "Loading models..." : getSelectedModelLabel()}
+          </span>
+          <div className="flex items-center gap-1">
+            <div
+              className="h-4 w-4 p-0 cursor-pointer hover:opacity-70 transition-opacity"
+              onClick={handleRefresh}
+            >
+              <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
+            </div>
+            <ChevronsUpDown className="h-4 w-4 opacity-50" />
+          </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0">
+      <PopoverContent className="w-[300px] p-0">
         <Command>
           <CommandInput placeholder="Search model..." className="h-9" />
           <CommandList>
-            <CommandEmpty>No model found.</CommandEmpty>
+            <CommandEmpty>
+              {models.length === 0 ? "No models loaded. Please check your API key." : "No model found."}
+            </CommandEmpty>
             {models.map((group) => (
-              <CommandGroup key={group.provider} heading={group.provider}>
-                {group.items.map((model) => (
+              <CommandGroup key={group.provider} heading={group.provider.toUpperCase()}>
+                {group.models.map((model) => (
                   <CommandItem
-                    key={model.value}
-                    value={model.value}
-                    onSelect={(currentValue: string) => {
-                      const newValue = currentValue === modelValue ? "" : currentValue
-                      setModelValue(newValue)
-                      setOpen(false)
-                      onChange?.(`${group.provider}/${newValue}`)
-                    }}
+                    key={model.id}
+                    value={model.id}
+                    onSelect={() => handleModelSelect(model.id)}
+                    className="flex flex-col items-start"
                   >
-                    {model.label}
-                    <Check
-                      className={cn(
-                        "ml-auto",
-                        modelValue === model.value ? "opacity-100" : "opacity-0"
-                      )}
-                    />
+                    <div className="flex items-center w-full">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{model.name}</div>
+                        <div className="text-xs text-muted-foreground truncate">{model.id}</div>
+                      </div>
+                      <Check
+                        className={cn(
+                          "ml-2 h-4 w-4",
+                          selectedModel === model.id ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                    </div>
                   </CommandItem>
                 ))}
               </CommandGroup>

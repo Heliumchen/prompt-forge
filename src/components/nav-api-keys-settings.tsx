@@ -21,12 +21,12 @@ import { toast } from "sonner"
 
 export function NavAPIKeysSettings() {
   const providers = [
-    { name: "OpenAI", id: "OpenAI" },
-    { name: "Google", id: "Google" },
-    { name: "Anthropic", id: "Anthropic" },
-    { name: "DeepSeek", id: "DeepSeek" },
-    { name: "OpenRouter", id: "OpenRouter" },
-    { name: "Together", id: "Together" },
+    {
+      name: "OpenRouter",
+      id: "OpenRouter",
+      description: "",
+      required: true
+    }
   ]
 
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({})
@@ -80,9 +80,9 @@ export function NavAPIKeysSettings() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>API Keys Settings</DialogTitle>
+          <DialogTitle>API Key Settings</DialogTitle>
           <DialogDescription>
-            Configure API keys for different AI service providers. All keys are stored locally in the browser and will not be uploaded to the server.
+            Configure your OpenRouter API key to access multiple AI models. The key is stored locally in your browser and never uploaded to any server.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -91,27 +91,39 @@ export function NavAPIKeysSettings() {
               <label htmlFor={provider.id} className="text-right">
                 {provider.name}
               </label>
-              <div className="col-span-3 flex">
-                <Input
-                  id={provider.id}
-                  type={visibleKeys[provider.id] ? "text" : "password"}
-                  value={apiKeys[provider.id] || ""}
-                  onChange={(e) => handleKeyChange(provider.id, e.target.value)}
-                  className="flex-1"
-                  placeholder={`Enter ${provider.name} API key`}
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => toggleKeyVisibility(provider.id)}
-                  className="ml-2"
-                >
-                  {visibleKeys[provider.id] ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
+              <div className="col-span-3 flex flex-col">
+                <div className="flex">
+                  <Input
+                    id={provider.id}
+                    type={visibleKeys[provider.id] ? "text" : "password"}
+                    value={apiKeys[provider.id] || ""}
+                    onChange={(e) => handleKeyChange(provider.id, e.target.value)}
+                    className="flex-1"
+                    placeholder={`Enter ${provider.name} API key`}
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => toggleKeyVisibility(provider.id)}
+                    className="ml-2"
+                  >
+                    {visibleKeys[provider.id] ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                {provider.description && (
+                  <p className="text-xs text-muted-foreground mt-1">{provider.description}</p>
+                )}
+                {provider.id === "OpenRouter" && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="underline">
+                      Get OpenRouter API key
+                    </a>
+                  </p>
+                )}
               </div>
             </div>
           ))}

@@ -297,7 +297,7 @@ const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProps>(({
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        {uploadingImages ? '上传中...' : '上传图片'}
+                        {uploadingImages ? 'Uploading...' : 'Upload Images'}
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
