@@ -196,4 +196,170 @@ export const deleteProject = (uid: string): void => {
 // 清除所有项目数据
 export const clearProjects = (): void => {
   localStorage.removeItem(STORAGE_KEY);
+};
+
+// Variable management functions
+
+/**
+ * Extracts unique variable names from all prompts in the given array
+ * @param prompts - Array of prompts to scan for variables
+ * @returns Array of unique variable names found across all prompts
+ */
+export const extractVariablesFromPrompts = (prompts: Prompt[]): string[] => {
+  if (!prompts || prompts.length === 0) {
+    return [];
+  }
+
+  const variableNames = new Set<string>();
+  const variablePattern = /\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/g;
+
+  prompts.forEach(prompt => {
+    if (prompt && prompt.content && typeof prompt.content === 'string') {
+      let match;
+      variablePattern.lastIndex = 0;
+      
+      while ((match = variablePattern.exec(prompt.content)) !== null) {
+        variableNames.add(match[1]);
+      }
+    }
+  });
+
+  return Array.from(variableNames).sort();
+};
+
+/**
+ * Merges detected variable names with existing variable values
+ * Preserves existing variable values and adds new variables with empty values
+ * @param detectedNames - Array of variable names detected in prompts
+ * @param existingVariables - Array of existing Variable objects
+ * @returns Array of merged Variable objects
+ */
+export const mergeVariables = (detectedNames: string[], existingVariables: Variable[]): Variable[] => {
+  if (!detectedNames) {
+    detectedNames = [];
+  }
+  if (!existingVariables) {
+    existingVariables = [];
+  }
+
+  // Create a map of existing variables for quick lookup
+  const existingMap = new Map<string, string>();
+  existingVariables.forEach(variable => {
+    if (variable && typeof variable.name === 'string') {
+      existingMap.set(variable.name, variable.value || '');
+    }
+  });
+
+  // Create merged variables array
+  const mergedVariables: Variable[] = [];
+  const processedNames = new Set<string>();
+
+  // Add all detected variables (preserve existing values or use empty string)
+  detectedNames.forEach(name => {
+    if (name && typeof name === 'string' && !processedNames.has(name)) {
+      mergedVariables.push({
+        name,
+        value: existingMap.get(name) || ''
+      });
+      processedNames.add(name);
+    }
+  });
+
+  return mergedVariables.sort((a, b) => a.name.localeCompare(b.name));
+};
+
+/**
+ * Updates variables in the current version of a project while maintaining immutability
+ * @param project - The project to update
+ * @param variables - Array of Variable objects to set
+ * @returns Updated project with new variables in current version
+ */
+export const updateVariables = (project: Project, variables: Variable[]): Project => {
+  if (!project) {
+    throw new Error('Project is required');
+  }
+
+  if (!variables) {
+    variables = [];
+  }
+
+  // Validate variables array
+  const validVariables = variables.filter(variable => 
+    variable && 
+    typeof variable.name === 'string' && 
+    variable.name.length > 0 &&
+    typeof variable.value === 'string'
+  );
+
+  return updateCurrentVersion(project, { variables: validVariables });
+};
+
+/**
+ * Updates a single variable value in the current version of a project
+ * @param project - The project to update
+ * @param variableName - Name of the variable to update
+ * @param variableValue - New value for the variable
+ * @returns Updated project with the variable value changed
+ */
+export const updateVariable = (project: Project, variableName: string, variableValue: string): Project => {
+  if (!project) {
+    throw new Error('Project is required');
+  }
+
+  if (!variableName || typeof variableName !== 'string') {
+    throw new Error('Variable name is required and must be a string');
+  }
+
+  if (typeof variableValue !== 'string') {
+    variableValue = '';
+  }
+
+  const currentVersion = project.versions.find(v => v.id === project.currentVersion);
+  if (!currentVersion) {
+    throw new Error('Current version not found');
+  }
+
+  const existingVariables = currentVersion.data.variables || [];
+  const updatedVariables = [...existingVariables];
+  
+  // Find existing variable or add new one
+  const existingIndex = updatedVariables.findIndex(v => v.name === variableName);
+  
+  if (existingIndex >= 0) {
+    // Update existing variable
+    updatedVariables[existingIndex] = {
+      ...updatedVariables[existingIndex],
+      value: variableValue
+    };
+  } else {
+    // Add new variable
+    updatedVariables.push({
+      name: variableName,
+      value: variableValue
+    });
+  }
+
+  return updateCurrentVersion(project, { variables: updatedVariables });
+};
+
+/**
+ * Synchronizes variables in a project by detecting variables from prompts and merging with existing values
+ * @param project - The project to synchronize variables for
+ * @returns Updated project with synchronized variables
+ */
+export const synchronizeVariables = (project: Project): Project => {
+  if (!project) {
+    throw new Error('Project is required');
+  }
+
+  const currentVersion = project.versions.find(v => v.id === project.currentVersion);
+  if (!currentVersion) {
+    throw new Error('Current version not found');
+  }
+
+  const detectedNames = extractVariablesFromPrompts(currentVersion.data.prompts || []);
+  const existingVariables = currentVersion.data.variables || [];
+  const mergedVariables = mergeVariables(detectedNames, existingVariables);
+
+  return updateCurrentVersion(project, { variables: mergedVariables });
 }; 

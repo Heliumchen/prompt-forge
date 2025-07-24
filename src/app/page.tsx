@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { LLMClient } from "@/lib/openrouter";
 import { AppSidebar } from "@/components/app-sidebar";
 
@@ -39,6 +40,7 @@ import { IntroBlock } from "@/components/intro-block";
 import { Message, Project, Prompt } from "@/lib/storage";
 import { DialogModelSettings } from "@/components/dialog-model-settings";
 import { VersionSelect } from "@/components/version-select";
+import { VariablesSection } from "@/components/variables-section";
 
 
 // 定义类型来区分是处理 prompt 还是 message
@@ -57,6 +59,9 @@ export default function Page() {
     deleteMessage,
     clearMessages,
     updateProject,
+    updateVariable,
+    getDetectedVariables,
+    processPromptsWithVariables,
   } = useProjects();
 
   const [selectedModel, setSelectedModel] = useState<string>("");
@@ -271,9 +276,10 @@ export default function Page() {
         return;
       }
       
-      // 组装消息，先添加所有prompts，再添加当前message之前的messages
+      // 组装消息，先添加所有prompts（处理变量），再添加当前message之前的messages
+      const processedPrompts = processPromptsWithVariables(currentProject.uid);
       messages = [
-        ...currentVersion.data.prompts.map(p => ({
+        ...processedPrompts.map(p => ({
           role: p.role,
           content: p.content,
           image_urls: p.image_urls
@@ -287,9 +293,10 @@ export default function Page() {
       
       console.log(`Regenerating message ${messageId}, using ${messages.length} previous messages`);
     } else {
-      // 如果没有指定messageId，使用所有消息
+      // 如果没有指定messageId，使用所有消息（处理变量）
+      const processedPrompts = processPromptsWithVariables(currentProject.uid);
       messages = [
-        ...currentVersion.data.prompts.map(p => ({
+        ...processedPrompts.map(p => ({
           role: p.role,
           content: p.content,
           image_urls: p.image_urls
@@ -381,7 +388,7 @@ export default function Page() {
       setIsGenerating(false);
       setGeneratingMessageId(null);
     }
-  }, [currentProject, selectedModel, addMessage, updateMessage, setStreamingContent, setStreamingMessageId, setIsGenerating, setGeneratingMessageId]);
+  }, [currentProject, selectedModel, addMessage, updateMessage, setStreamingContent, setStreamingMessageId, setIsGenerating, setGeneratingMessageId, processPromptsWithVariables]);
 
   const handleEvaluate = async (rounds: number = 5) => {
     if (!currentProject) {
@@ -447,9 +454,10 @@ export default function Page() {
         console.log(`开始评估轮次 ${i + 1}/${rounds}`);
         
         try {
-          // 使用本地跟踪的消息
+          // 使用本地跟踪的消息（处理变量）
+          const processedPrompts = processPromptsWithVariables(currentProject.uid);
           const currentProjectMessages = [
-            ...currentVersion.data.prompts.map((p: Prompt) => ({
+            ...processedPrompts.map((p: Prompt) => ({
               role: p.role,
               content: p.content
             })),
@@ -737,27 +745,51 @@ export default function Page() {
             <h2 className="mb-4 font-semibold">Generations</h2>
             <div className="flex flex-col gap-4">
               {(() => {
-                const currentVersion = currentProject.versions.find(v => v.id === currentProject.currentVersion);
-                if (!currentVersion) return null;
-                
-                // 检查变量
-                const hasVariables = 
-                  currentVersion.data.variables?.length > 0;
-                
-                if (hasVariables) {
+                try {
+                  const currentVersion = currentProject.versions.find(v => v.id === currentProject.currentVersion);
+                  if (!currentVersion) return null;
+                  
+                  // Get detected variables and current variable values
+                  const detectedVariables = getDetectedVariables(currentProject.uid);
+                  const currentVariables = currentVersion.data.variables || [];
+                  
+                  // Show Variables Section if there are detected variables
+                  if (detectedVariables.length > 0) {
+                    return (
+                      <VariablesSection
+                        variables={currentVariables}
+                        onVariableUpdate={(name: string, value: string) => {
+                          try {
+                            updateVariable(currentProject.uid, name, value);
+                          } catch (error) {
+                            console.error("Error updating variable:", error);
+                            toast.error("Failed to update variable");
+                          }
+                        }}
+                        isGenerating={isGenerating}
+                        className="mb-6"
+                        defaultCollapsed={detectedVariables.length > 3}
+                      />
+                    );
+                  } else {
+                    return (
+                      <Alert className="border-dashed mb-6">
+                        <Braces className="h-4 w-4" />
+                        <AlertTitle>Variables</AlertTitle>
+                        <AlertDescription>
+                          You can create a variable in prompt template like this: {'{{variable_name}}'}
+                        </AlertDescription>
+                      </Alert>
+                    );
+                  }
+                } catch (error) {
+                  console.error("Error rendering Variables Section:", error);
                   return (
-                    <div className="flex flex-col gap-4">
-                      <h2 className="mb-4 font-semibold">Variables</h2>
-                      <p>TODO: 识别左侧的variables，用户可以给每个variable填充值</p>
-                    </div>
-                  );
-                } else {
-                  return (
-                    <Alert className="border-dashed">
+                    <Alert className="border-dashed mb-6" variant="destructive">
                       <Braces className="h-4 w-4" />
-                      <AlertTitle>Variables </AlertTitle>
+                      <AlertTitle>Variables Error</AlertTitle>
                       <AlertDescription>
-                      (Coming soon) You can create a variable in prompt template like this: {'{{variable_name}}'}
+                        Failed to load variables. Please try refreshing the page.
                       </AlertDescription>
                     </Alert>
                   );
