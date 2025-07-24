@@ -767,7 +767,6 @@ export default function Page() {
                           }
                         }}
                         isGenerating={isGenerating}
-                        className="mb-6"
                         defaultCollapsed={detectedVariables.length > 3}
                       />
                     );
