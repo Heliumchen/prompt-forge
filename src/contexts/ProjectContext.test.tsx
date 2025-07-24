@@ -6,7 +6,6 @@ import {
   Project,
   Prompt,
   Variable,
-  createNewVersion,
   updateCurrentVersion,
 } from '@/lib/storage';
 import { processTemplate } from '@/lib/variableUtils';

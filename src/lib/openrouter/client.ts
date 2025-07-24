@@ -10,8 +10,8 @@ export interface LLMOptions {
   presence_penalty?: number;
   seed?: number;
   stream?: boolean;
-  tools?: any[];
-  tool_choice?: any;
+  tools?: unknown[];
+  tool_choice?: unknown;
   response_format?: { type: 'json_object' | 'text' };
 }
 
@@ -46,7 +46,7 @@ export class LLMClient {
     if (options.stream) {
       return this.parseStreamResponse(response as AsyncIterable<StreamChunk>);
     } else {
-      const completionResponse = response as any;
+      const completionResponse = response as { choices: Array<{ message?: { content?: string } }> };
       return completionResponse.choices[0]?.message?.content || '';
     }
   }

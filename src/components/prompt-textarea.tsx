@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, forwardRef } from 'react'
+import { useState, useEffect, useRef, forwardRef, useCallback } from 'react'
 import {
     Select,
     SelectContent,
@@ -77,34 +77,35 @@ const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProps>(({
   
   // 当外部content变化时更新内部状态
   useEffect(() => {
-    // Only update if the prop content is different from internal state
-    if (content !== textValue) {
-      setTextValue(content)
-    }
-  }, [content]) // Removed textValue from dependency array
+    setTextValue(content)
+  }, [content])
   
   // 当外部imageUrls变化时更新内部状态
   useEffect(() => {
-    // Only update if imageUrls actually changed
-    if (imageUrls.length !== images.length || !imageUrls.every((url, i) => url === images[i])) {
-        setImages(imageUrls)
-    }
-  }, [imageUrls]) // Removed images from dependency array
+    setImages(imageUrls)
+  }, [imageUrls])
   
   // 当正在流式生成时，使用streamingContent值
   useEffect(() => {
     if (isStreaming && streamingContent !== undefined) {
-      // Only update if streamingContent is different from internal state
-      if (streamingContent !== textValue) {
-        setTextValue(streamingContent)
-      }
+      setTextValue(streamingContent)
     }
-    // Make sure dependencies are correct. textValue should NOT be here.
   }, [isStreaming, streamingContent])
   
   // 添加自动调整高度的功能
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const finalRef = (ref || textareaRef) as React.RefObject<HTMLTextAreaElement>
+  
+  // 修改 adjustHeight 函数，确保在下一帧执行
+  const adjustHeight = useCallback(() => {
+    const textarea = finalRef.current
+    if (textarea) {
+      requestAnimationFrame(() => {
+        textarea.style.height = 'auto'
+        textarea.style.height = `${textarea.scrollHeight}px`
+      })
+    }
+  }, [finalRef])
   
   // 添加窗口大小变化的监听
   useEffect(() => {
@@ -118,23 +119,12 @@ const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProps>(({
     return () => {
       window.removeEventListener('resize', handleResize)
     }
-  }, []) // 空依赖数组，只在组件挂载时添加监听
-  
-  // 修改 adjustHeight 函数，确保在下一帧执行
-  const adjustHeight = () => {
-    const textarea = finalRef.current
-    if (textarea) {
-      requestAnimationFrame(() => {
-        textarea.style.height = 'auto'
-        textarea.style.height = `${textarea.scrollHeight}px`
-      })
-    }
-  }
+  }, [adjustHeight])
   
   // 初始加载和内容变化时调整高度
   useEffect(() => {
     adjustHeight()
-  }, [textValue])
+  }, [textValue, adjustHeight])
   
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setTextValue(e.target.value)
@@ -353,6 +343,7 @@ const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProps>(({
             <div className="flex flex-wrap gap-2">
               {images.map((url, index) => (
                 <div key={index} className="relative group">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img 
                     src={url} 
                     alt={`Uploaded ${index + 1}`} 

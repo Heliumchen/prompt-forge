@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   Project,
-  Version,
-  VersionData,
+  Version as _Version,
+  VersionData as _VersionData,
   Prompt,
   Variable,
   extractVariablesFromPrompts,
@@ -10,8 +10,8 @@ import {
   updateVariables,
   updateVariable,
   synchronizeVariables,
-  createNewVersion,
-  updateCurrentVersion
+  createNewVersion as _createNewVersion,
+  updateCurrentVersion as _updateCurrentVersion
 } from './storage';
 
 // Mock localStorage
@@ -45,8 +45,8 @@ describe('Variable Management Functions', () => {
 
     it('should return empty array for empty prompts', () => {
       expect(extractVariablesFromPrompts([])).toEqual([]);
-      expect(extractVariablesFromPrompts(null as any)).toEqual([]);
-      expect(extractVariablesFromPrompts(undefined as any)).toEqual([]);
+      expect(extractVariablesFromPrompts(null as unknown as Prompt[])).toEqual([]);
+      expect(extractVariablesFromPrompts(undefined as unknown as Prompt[])).toEqual([]);
     });
 
     it('should handle prompts without variables', () => {
@@ -72,8 +72,8 @@ describe('Variable Management Functions', () => {
     it('should handle prompts with null or undefined content', () => {
       const prompts: Prompt[] = [
         { id: 1, role: 'system', content: 'Valid {{name}}' },
-        { id: 2, role: 'user', content: null as any },
-        { id: 3, role: 'assistant', content: undefined as any },
+        { id: 2, role: 'user', content: null as unknown as string },
+        { id: 3, role: 'assistant', content: undefined as unknown as string },
         { id: 4, role: 'user', content: 'Another {{variable}}' }
       ];
 
@@ -127,17 +127,17 @@ describe('Variable Management Functions', () => {
     });
 
     it('should handle null/undefined inputs', () => {
-      expect(mergeVariables(null as any, null as any)).toEqual([]);
-      expect(mergeVariables(undefined as any, undefined as any)).toEqual([]);
-      expect(mergeVariables(['name'], null as any)).toEqual([{ name: 'name', value: '' }]);
-      expect(mergeVariables(null as any, [{ name: 'name', value: 'John' }])).toEqual([]);
+      expect(mergeVariables(null as unknown as string[], null as unknown as Variable[])).toEqual([]);
+      expect(mergeVariables(undefined as unknown as string[], undefined as unknown as Variable[])).toEqual([]);
+      expect(mergeVariables(['name'], null as unknown as Variable[])).toEqual([{ name: 'name', value: '' }]);
+      expect(mergeVariables(null as unknown as string[], [{ name: 'name', value: 'John' }])).toEqual([]);
     });
 
     it('should filter out invalid variable names', () => {
-      const detectedNames = ['valid_name', '', null as any, undefined as any, 'another_valid'];
+      const detectedNames = ['valid_name', '', null as unknown as string, undefined as unknown as string, 'another_valid'];
       const existingVariables: Variable[] = [
         { name: 'valid_name', value: 'test' },
-        { name: null as any, value: 'invalid' },
+        { name: null as unknown as string, value: 'invalid' },
         { name: '', value: 'empty' }
       ];
 
@@ -217,7 +217,7 @@ describe('Variable Management Functions', () => {
     });
 
     it('should handle null/undefined variables', () => {
-      const result = updateVariables(mockProject, null as any);
+      const result = updateVariables(mockProject, null as unknown as Variable[]);
       
       expect(result.versions[0].data.variables).toEqual([]);
     });
@@ -226,9 +226,9 @@ describe('Variable Management Functions', () => {
       const variables: Variable[] = [
         { name: 'valid', value: 'test' },
         { name: '', value: 'invalid empty name' },
-        { name: null as any, value: 'invalid null name' },
-        { name: 'valid2', value: null as any },
-        { name: 'valid3', value: undefined as any }
+        { name: null as unknown as string, value: 'invalid null name' },
+        { name: 'valid2', value: null as unknown as string },
+        { name: 'valid3', value: undefined as unknown as string }
       ];
 
       const result = updateVariables(mockProject, variables);
@@ -239,7 +239,7 @@ describe('Variable Management Functions', () => {
     });
 
     it('should throw error for null project', () => {
-      expect(() => updateVariables(null as any, [])).toThrow('Project is required');
+      expect(() => updateVariables(null as unknown as Project, [])).toThrow('Project is required');
     });
   });
 
@@ -294,7 +294,7 @@ describe('Variable Management Functions', () => {
     });
 
     it('should convert non-string values to empty string', () => {
-      const result = updateVariable(mockProject, 'existing', null as any);
+      const result = updateVariable(mockProject, 'existing', null as unknown as string);
       
       expect(result.versions[0].data.variables).toEqual([
         { name: 'existing', value: '' }
@@ -302,12 +302,12 @@ describe('Variable Management Functions', () => {
     });
 
     it('should throw error for null project', () => {
-      expect(() => updateVariable(null as any, 'name', 'value')).toThrow('Project is required');
+      expect(() => updateVariable(null as unknown as Project, 'name', 'value')).toThrow('Project is required');
     });
 
     it('should throw error for invalid variable name', () => {
       expect(() => updateVariable(mockProject, '', 'value')).toThrow('Variable name is required and must be a string');
-      expect(() => updateVariable(mockProject, null as any, 'value')).toThrow('Variable name is required and must be a string');
+      expect(() => updateVariable(mockProject, null as unknown as string, 'value')).toThrow('Variable name is required and must be a string');
     });
 
     it('should throw error if current version not found', () => {
@@ -376,7 +376,7 @@ describe('Variable Management Functions', () => {
     });
 
     it('should throw error for null project', () => {
-      expect(() => synchronizeVariables(null as any)).toThrow('Project is required');
+      expect(() => synchronizeVariables(null as unknown as Project)).toThrow('Project is required');
     });
 
     it('should throw error if current version not found', () => {

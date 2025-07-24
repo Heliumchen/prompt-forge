@@ -45,8 +45,9 @@ export function VariablesSection({
 
   // Cleanup timeouts on unmount
   React.useEffect(() => {
+    const currentTimeouts = debounceTimeouts.current
     return () => {
-      Object.values(debounceTimeouts.current).forEach(clearTimeout)
+      Object.values(currentTimeouts).forEach(clearTimeout)
     }
   }, [])
 

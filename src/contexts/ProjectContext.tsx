@@ -7,7 +7,6 @@ import {
   Project,
   Prompt,
   Message,
-  Variable,
   createNewVersion as createNewVersionUtil,
   switchVersion as switchVersionUtil,
   updateCurrentVersion,

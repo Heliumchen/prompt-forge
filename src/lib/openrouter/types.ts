@@ -28,7 +28,7 @@ export interface OpenRouterModel {
     max_completion_tokens: number | null;
     is_moderated: boolean;
   };
-  per_request_limits: any;
+  per_request_limits: unknown;
   supported_parameters: string[];
 }
 
@@ -56,8 +56,8 @@ export interface ChatCompletionOptions {
   presence_penalty?: number;
   seed?: number;
   stream?: boolean;
-  tools?: any[];
-  tool_choice?: any;
+  tools?: unknown[];
+  tool_choice?: unknown;
   response_format?: { type: 'json_object' | 'text' };
 }
 
@@ -71,7 +71,7 @@ export interface ChatCompletionResponse {
     message: {
       role: string;
       content: string;
-      tool_calls?: any[];
+      tool_calls?: unknown[];
     };
     finish_reason: string;
   }>;
@@ -92,7 +92,7 @@ export interface StreamChunk {
     delta: {
       role?: string;
       content?: string;
-      tool_calls?: any[];
+      tool_calls?: unknown[];
     };
     finish_reason: string | null;
   }>;

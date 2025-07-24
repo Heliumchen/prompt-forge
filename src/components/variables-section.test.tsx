@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { VariablesSection, VariablesSectionSkeleton } from './variables-section'
 import { Variable } from '@/lib/storage'
@@ -9,7 +9,7 @@ vi.useFakeTimers()
 
 describe('VariablesSection', () => {
   const mockOnVariableUpdate = vi.fn()
-  
+
   const mockVariables: Variable[] = [
     { name: 'userName', value: 'John Doe' },
     { name: 'topic', value: 'React Testing' },
@@ -37,7 +37,7 @@ describe('VariablesSection', () => {
 
       expect(screen.getByText('Variables')).toBeInTheDocument()
       expect(screen.getByText('No variables detected')).toBeInTheDocument()
-      expect(screen.getByText((content, element) => {
+      expect(screen.getByText((_content, element) => {
         return element?.textContent === 'Use {{variable}} syntax in your prompts'
       })).toBeInTheDocument()
     })
@@ -155,14 +155,14 @@ describe('VariablesSection', () => {
       )
 
       const textarea = screen.getByLabelText('Value for variable userName')
-      
+
       // Type rapidly
       fireEvent.change(textarea, { target: { value: 'J' } })
       vi.advanceTimersByTime(100)
       fireEvent.change(textarea, { target: { value: 'Ja' } })
       vi.advanceTimersByTime(100)
       fireEvent.change(textarea, { target: { value: 'Jane' } })
-      
+
       // Fast forward full debounce time
       vi.advanceTimersByTime(300)
 
@@ -198,7 +198,7 @@ describe('VariablesSection', () => {
       const userNameTextarea = screen.getByLabelText('Value for variable userName')
       const topicTextarea = screen.getByLabelText('Value for variable topic')
       const emptyVarTextarea = screen.getByLabelText('Value for variable emptyVar')
-      
+
       expect(userNameTextarea).toBeDisabled()
       expect(topicTextarea).toBeDisabled()
       expect(emptyVarTextarea).toBeDisabled()
@@ -216,7 +216,7 @@ describe('VariablesSection', () => {
       const userNameTextarea = screen.getByLabelText('Value for variable userName')
       const topicTextarea = screen.getByLabelText('Value for variable topic')
       const emptyVarTextarea = screen.getByLabelText('Value for variable emptyVar')
-      
+
       expect(userNameTextarea).not.toBeDisabled()
       expect(topicTextarea).not.toBeDisabled()
       expect(emptyVarTextarea).not.toBeDisabled()
@@ -252,7 +252,7 @@ describe('VariablesSection', () => {
       const userNameTextarea = screen.getByLabelText('Value for variable userName')
       const topicTextarea = screen.getByLabelText('Value for variable topic')
       const emptyVarTextarea = screen.getByLabelText('Value for variable emptyVar')
-      
+
       expect(userNameTextarea).toHaveAttribute('aria-label', 'Value for variable userName')
       expect(topicTextarea).toHaveAttribute('aria-label', 'Value for variable topic')
       expect(emptyVarTextarea).toHaveAttribute('aria-label', 'Value for variable emptyVar')
@@ -268,7 +268,7 @@ describe('VariablesSection', () => {
 
       const userNameLabel = screen.getByText('{{userName}}').closest('label')
       const userNameTextarea = screen.getByLabelText('Value for variable userName')
-      
+
       expect(userNameLabel).toHaveAttribute('for', 'variable-userName')
       expect(userNameTextarea).toHaveAttribute('id', 'variable-userName')
     })
@@ -282,9 +282,9 @@ describe('VariablesSection', () => {
       )
 
       const textareas = screen.getAllByRole('textbox')
-      
+
       // All textareas should be focusable
-      textareas.forEach((textarea: any) => {
+      textareas.forEach((textarea) => {
         expect(textarea).not.toHaveAttribute('tabindex', '-1')
       })
     })
@@ -340,7 +340,7 @@ describe('VariablesSection', () => {
       // Variables should be visible by default
       expect(screen.getByLabelText('Value for variable userName')).toBeInTheDocument()
       expect(screen.getByLabelText('Value for variable topic')).toBeInTheDocument()
-      
+
       // Collapse button should show down chevron
       const collapseButton = screen.getByLabelText('Collapse variables')
       expect(collapseButton).toBeInTheDocument()
@@ -360,7 +360,7 @@ describe('VariablesSection', () => {
       // Variables should be hidden after collapse
       expect(screen.queryByLabelText('Value for variable userName')).not.toBeInTheDocument()
       expect(screen.queryByLabelText('Value for variable topic')).not.toBeInTheDocument()
-      
+
       // Button should now show expand label and right chevron
       expect(screen.getByLabelText('Expand variables')).toBeInTheDocument()
     })
@@ -374,7 +374,7 @@ describe('VariablesSection', () => {
       )
 
       const collapseButton = screen.getByLabelText('Collapse variables')
-      
+
       // Collapse first
       fireEvent.click(collapseButton)
       expect(screen.queryByLabelText('Value for variable userName')).not.toBeInTheDocument()
@@ -401,7 +401,7 @@ describe('VariablesSection', () => {
       // Variables should be hidden initially
       expect(screen.queryByLabelText('Value for variable userName')).not.toBeInTheDocument()
       expect(screen.queryByLabelText('Value for variable topic')).not.toBeInTheDocument()
-      
+
       // Button should show expand label
       expect(screen.getByLabelText('Expand variables')).toBeInTheDocument()
     })
