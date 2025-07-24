@@ -10,7 +10,11 @@ import {
   createNewVersion as createNewVersionUtil,
   switchVersion as switchVersionUtil,
   updateCurrentVersion,
+  updateVariable as updateVariableUtil,
+  extractVariablesFromPrompts,
+  synchronizeVariables,
 } from "@/lib/storage";
+import { processTemplate } from "@/lib/variableUtils";
 import { generateUid } from "@/lib/utils";
 
 interface ProjectContextType {
@@ -42,6 +46,10 @@ interface ProjectContextType {
   clearPrompts: (projectUid: string) => void;
   createNewVersion: (projectUid: string, description: string) => void;
   switchToVersion: (projectUid: string, versionId: number) => void;
+  // Variable-related methods
+  updateVariable: (projectUid: string, name: string, value: string) => void;
+  getDetectedVariables: (projectUid: string) => string[];
+  processPromptsWithVariables: (projectUid: string) => Prompt[];
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -183,9 +191,12 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
             content: "",
           };
 
-          const updatedProject = updateCurrentVersion(project, {
+          let updatedProject = updateCurrentVersion(project, {
             prompts: [...currentData.prompts, newPrompt],
           });
+
+          // Synchronize variables after adding prompt
+          updatedProject = synchronizeVariables(updatedProject);
 
           if (currentProject?.uid === projectUid) {
             setCurrentProject(updatedProject);
@@ -212,9 +223,12 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
             prompt.id === promptId ? { ...prompt, ...data } : prompt
           );
 
-          const updatedProject = updateCurrentVersion(project, {
+          let updatedProject = updateCurrentVersion(project, {
             prompts: updatedPrompts,
           });
+
+          // Synchronize variables after prompt update
+          updatedProject = synchronizeVariables(updatedProject);
 
           if (currentProject?.uid === projectUid) {
             setCurrentProject(updatedProject);
@@ -237,9 +251,12 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
             (prompt) => prompt.id !== promptId
           );
 
-          const updatedProject = updateCurrentVersion(project, {
+          let updatedProject = updateCurrentVersion(project, {
             prompts: updatedPrompts,
           });
+
+          // Synchronize variables after deleting prompt
+          updatedProject = synchronizeVariables(updatedProject);
 
           if (currentProject?.uid === projectUid) {
             setCurrentProject(updatedProject);
@@ -369,9 +386,12 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
     setProjects((prev) =>
       prev.map((project) => {
         if (project.uid === projectUid) {
-          const updatedProject = updateCurrentVersion(project, {
+          let updatedProject = updateCurrentVersion(project, {
             prompts: [],
           });
+
+          // Synchronize variables after clearing prompts
+          updatedProject = synchronizeVariables(updatedProject);
 
           if (currentProject?.uid === projectUid) {
             setCurrentProject(updatedProject);
@@ -416,6 +436,47 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
     );
   };
 
+  // Variable-related methods
+
+  // 更新单个变量值
+  const updateVariable = (projectUid: string, name: string, value: string) => {
+    setProjects((prev) =>
+      prev.map((project) => {
+        if (project.uid === projectUid) {
+          const updatedProject = updateVariableUtil(project, name, value);
+          if (currentProject?.uid === projectUid) {
+            setCurrentProject(updatedProject);
+          }
+          return updatedProject;
+        }
+        return project;
+      })
+    );
+  };
+
+  // 获取当前版本中检测到的变量名称
+  const getDetectedVariables = (projectUid: string): string[] => {
+    const project = projects.find((p) => p.uid === projectUid);
+    if (!project) return [];
+
+    const currentData = getCurrentVersionData(project);
+    return extractVariablesFromPrompts(currentData.prompts);
+  };
+
+  // 处理提示模板，将变量替换为实际值
+  const processPromptsWithVariables = (projectUid: string): Prompt[] => {
+    const project = projects.find((p) => p.uid === projectUid);
+    if (!project) return [];
+
+    const currentData = getCurrentVersionData(project);
+    const variables = currentData.variables || [];
+
+    return currentData.prompts.map((prompt) => ({
+      ...prompt,
+      content: processTemplate(prompt.content, variables),
+    }));
+  };
+
   const value = {
     projects,
     currentProject,
@@ -433,6 +494,9 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
     clearMessages,
     createNewVersion,
     switchToVersion,
+    updateVariable,
+    getDetectedVariables,
+    processPromptsWithVariables,
   };
 
   return (

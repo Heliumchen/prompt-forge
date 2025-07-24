@@ -1,6 +1,7 @@
 "use client";
 
-import LLM from "@/lib/llmjs";
+import React from "react";
+import { LLMClient } from "@/lib/openrouter";
 import { AppSidebar } from "@/components/app-sidebar";
 
 import PromptTextarea from "@/components/prompt-textarea";
@@ -39,6 +40,7 @@ import { IntroBlock } from "@/components/intro-block";
 import { Message, Project, Prompt } from "@/lib/storage";
 import { DialogModelSettings } from "@/components/dialog-model-settings";
 import { VersionSelect } from "@/components/version-select";
+import { VariablesSection } from "@/components/variables-section";
 
 
 // 定义类型来区分是处理 prompt 还是 message
@@ -57,6 +59,9 @@ export default function Page() {
     deleteMessage,
     clearMessages,
     updateProject,
+    updateVariable,
+    getDetectedVariables,
+    processPromptsWithVariables,
   } = useProjects();
 
   const [selectedModel, setSelectedModel] = useState<string>("");
@@ -76,8 +81,8 @@ export default function Page() {
   useEffect(() => {
     if (currentProject) {
       const currentVersion = currentProject.versions.find(v => v.id === currentProject.currentVersion);
-      if (currentVersion?.data.modelConfig) {
-        setSelectedModel(`${currentVersion.data.modelConfig.provider}/${currentVersion.data.modelConfig.model}`);
+      if (currentVersion?.data.modelConfig?.model) {
+        setSelectedModel(currentVersion.data.modelConfig.model);
       }
     }
   }, [currentProject]);
@@ -85,7 +90,6 @@ export default function Page() {
   const handleModelChange = (value: string) => {
     setSelectedModel(value);
     if (currentProject) {
-      const [modelProvider, modelValue] = value.split("/");
       const currentVersion = currentProject.versions.find(v => v.id === currentProject.currentVersion);
       if (currentVersion) {
         updateProject({
@@ -96,8 +100,8 @@ export default function Page() {
               data: {
                 ...v.data,
                 modelConfig: {
-                  provider: modelProvider,
-                  model: modelValue
+                  provider: "OpenRouter",
+                  model: value
                 }
               }
             } : v
@@ -236,23 +240,17 @@ export default function Page() {
       return;
     }
 
-    // 从selectedModel中解析provider和model
-    const [provider, model] = selectedModel.split("/");
-    if (!provider || !model) {
-      toast.error("模型格式错误");
-      return;
-    }
-
-    // 从localStorage获取API key
+    // 从localStorage获取OpenRouter API key
     const apiKeysStr = localStorage.getItem('apiKeys');
     if (!apiKeysStr) {
-      toast.error(`请在设置中配置 ${provider} 的API密钥`);
+      toast.error('请在设置中配置OpenRouter API密钥');
       return;
     }
     const apiKeys = JSON.parse(apiKeysStr);
-    const apiKey = apiKeys[provider];
+    const apiKey = apiKeys.OpenRouter;
+    
     if (!apiKey) {
-      toast.error(`请在设置中配置 ${provider} 的API密钥`);
+      toast.error('请在设置中配置OpenRouter API密钥');
       return;
     }
 
@@ -278,11 +276,13 @@ export default function Page() {
         return;
       }
       
-      // 组装消息，先添加所有prompts，再添加当前message之前的messages
+      // 组装消息，先添加所有prompts（处理变量），再添加当前message之前的messages
+      const processedPrompts = processPromptsWithVariables(currentProject.uid);
       messages = [
-        ...currentVersion.data.prompts.map(p => ({
+        ...processedPrompts.map(p => ({
           role: p.role,
-          content: p.content
+          content: p.content,
+          image_urls: p.image_urls
         })),
         ...allMessages.slice(0, messageIndex).map(m => ({
           role: m.role,
@@ -293,11 +293,13 @@ export default function Page() {
       
       console.log(`Regenerating message ${messageId}, using ${messages.length} previous messages`);
     } else {
-      // 如果没有指定messageId，使用所有消息
+      // 如果没有指定messageId，使用所有消息（处理变量）
+      const processedPrompts = processPromptsWithVariables(currentProject.uid);
       messages = [
-        ...currentVersion.data.prompts.map(p => ({
+        ...processedPrompts.map(p => ({
           role: p.role,
-          content: p.content
+          content: p.content,
+          image_urls: p.image_urls
         })),
         ...currentVersion.data.messages.map(m => ({
           role: m.role,
@@ -316,16 +318,8 @@ export default function Page() {
     setGeneratingMessageId(messageId || null);
     
     try {
-      const options = {
-        model,
-        service: provider.toLowerCase(),
-        apikey: apiKey,
-        dangerouslyAllowBrowser: true,
-        stream: true, // 启用流式输出
-        temperature: currentVersion.data.modelConfig?.temperature || 1.0,
-        max_tokens: currentVersion.data.modelConfig?.max_tokens || 1024,
-      };
-
+      const client = new LLMClient(apiKey);
+      
       let generatedText = '';
       let newMessageId: number | undefined;
       
@@ -342,8 +336,16 @@ export default function Page() {
         });
       }
 
-      const llm = new LLM(messages, options);
-      const stream = await llm.send();
+      setStreamingMessageId(newMessageId);
+
+      const options = {
+        model: selectedModel,
+        stream: true,
+        temperature: currentVersion.data.modelConfig?.temperature || 1.0,
+        max_tokens: currentVersion.data.modelConfig?.max_tokens || 1024,
+      };
+
+      const stream = await client.chat(messages, options);
       
       // 处理流式输出
       for await (const chunk of stream) {
@@ -363,7 +365,6 @@ export default function Page() {
       setStreamingContent(generatedText);
 
       // 在完全处理完后再重置流式状态
-      // 可以添加一个小延迟确保状态已更新
       setTimeout(() => {
         setStreamingMessageId(null);
         setStreamingContent('');
@@ -387,7 +388,7 @@ export default function Page() {
       setIsGenerating(false);
       setGeneratingMessageId(null);
     }
-  }, [currentProject, selectedModel, addMessage, updateMessage, setStreamingContent, setStreamingMessageId, setIsGenerating, setGeneratingMessageId]);
+  }, [currentProject, selectedModel, addMessage, updateMessage, setStreamingContent, setStreamingMessageId, setIsGenerating, setGeneratingMessageId, processPromptsWithVariables]);
 
   const handleEvaluate = async (rounds: number = 5) => {
     if (!currentProject) {
@@ -405,23 +406,17 @@ export default function Page() {
       return;
     }
 
-    // 从selectedModel中解析provider和model
-    const [provider, model] = selectedModel.split("/");
-    if (!provider || !model) {
-      toast.error("模型格式错误");
-      return;
-    }
-
-    // 从localStorage获取API key
+    // 从localStorage获取OpenRouter API key
     const apiKeysStr = localStorage.getItem('apiKeys');
     if (!apiKeysStr) {
-      toast.error(`请在设置中配置 ${provider} 的API密钥`);
+      toast.error('请在设置中配置OpenRouter API密钥');
       return;
     }
     const apiKeys = JSON.parse(apiKeysStr);
-    const apiKey = apiKeys[provider];
+    const apiKey = apiKeys.OpenRouter;
+    
     if (!apiKey) {
-      toast.error(`请在设置中配置 ${provider} 的API密钥`);
+      toast.error('请在设置中配置OpenRouter API密钥');
       return;
     }
 
@@ -459,9 +454,10 @@ export default function Page() {
         console.log(`开始评估轮次 ${i + 1}/${rounds}`);
         
         try {
-          // 使用本地跟踪的消息
+          // 使用本地跟踪的消息（处理变量）
+          const processedPrompts = processPromptsWithVariables(currentProject.uid);
           const currentProjectMessages = [
-            ...currentVersion.data.prompts.map((p: Prompt) => ({
+            ...processedPrompts.map((p: Prompt) => ({
               role: p.role,
               content: p.content
             })),
@@ -473,15 +469,7 @@ export default function Page() {
           ];
           
           // 生成assistant回复（流式）
-          const assistantOptions = {
-            model,
-            service: provider.toLowerCase(),
-            apikey: apiKey,
-            dangerouslyAllowBrowser: true,
-            stream: true,
-            temperature: currentProject.versions.find(v => v.id === currentProject.currentVersion)?.data.modelConfig?.temperature || 1.0,
-            max_tokens: currentProject.versions.find(v => v.id === currentProject.currentVersion)?.data.modelConfig?.max_tokens || 1024,
-          };
+          const client = new LLMClient(apiKey);
           
           // 创建新的assistant消息
           const assistantMessageId = addMessage(currentProject.uid, {
@@ -493,8 +481,14 @@ export default function Page() {
           setStreamingMessageId(assistantMessageId);
           
           let assistantContent = '';
-          const assistantLLM = new LLM(currentProjectMessages, assistantOptions);
-          const assistantStream = await assistantLLM.send();
+          const assistantOptions = {
+            model: selectedModel,
+            stream: true,
+            temperature: currentProject.versions.find(v => v.id === currentProject.currentVersion)?.data.modelConfig?.temperature || 1.0,
+            max_tokens: currentProject.versions.find(v => v.id === currentProject.currentVersion)?.data.modelConfig?.max_tokens || 1024,
+          };
+          
+          const assistantStream = await client.chat(currentProjectMessages, assistantOptions);
           
           // 处理流式输出
           for await (const chunk of assistantStream) {
@@ -545,10 +539,7 @@ export default function Page() {
           
           // 生成user回复（流式）
           const userOptions = {
-            model,
-            service: provider.toLowerCase(),
-            apikey: apiKey,
-            dangerouslyAllowBrowser: true,
+            model: selectedModel,
             stream: true,
             temperature: currentProject.versions.find(v => v.id === currentProject.currentVersion)?.data.modelConfig?.temperature || 1.0,
             max_tokens: currentProject.versions.find(v => v.id === currentProject.currentVersion)?.data.modelConfig?.max_tokens || 1024,
@@ -564,8 +555,7 @@ export default function Page() {
           setStreamingMessageId(userMessageId);
           
           let userContent = '';
-          const userLLM = new LLM(reversedMessages, userOptions);
-          const userStream = await userLLM.send();
+          const userStream = await client.chat(reversedMessages, userOptions);
           
           // 处理流式输出
           for await (const chunk of userStream) {
@@ -755,27 +745,50 @@ export default function Page() {
             <h2 className="mb-4 font-semibold">Generations</h2>
             <div className="flex flex-col gap-4">
               {(() => {
-                const currentVersion = currentProject.versions.find(v => v.id === currentProject.currentVersion);
-                if (!currentVersion) return null;
-                
-                // 检查变量
-                const hasVariables = 
-                  currentVersion.data.variables?.length > 0;
-                
-                if (hasVariables) {
+                try {
+                  const currentVersion = currentProject.versions.find(v => v.id === currentProject.currentVersion);
+                  if (!currentVersion) return null;
+                  
+                  // Get detected variables and current variable values
+                  const detectedVariables = getDetectedVariables(currentProject.uid);
+                  const currentVariables = currentVersion.data.variables || [];
+                  
+                  // Show Variables Section if there are detected variables
+                  if (detectedVariables.length > 0) {
+                    return (
+                      <VariablesSection
+                        variables={currentVariables}
+                        onVariableUpdate={(name: string, value: string) => {
+                          try {
+                            updateVariable(currentProject.uid, name, value);
+                          } catch (error) {
+                            console.error("Error updating variable:", error);
+                            toast.error("Failed to update variable");
+                          }
+                        }}
+                        isGenerating={isGenerating}
+                        defaultCollapsed={detectedVariables.length > 3}
+                      />
+                    );
+                  } else {
+                    return (
+                      <Alert className="border-dashed mb-6">
+                        <Braces className="h-4 w-4" />
+                        <AlertTitle>Variables</AlertTitle>
+                        <AlertDescription>
+                          You can create a variable in prompt template like this: {'{{variable_name}}'}
+                        </AlertDescription>
+                      </Alert>
+                    );
+                  }
+                } catch (error) {
+                  console.error("Error rendering Variables Section:", error);
                   return (
-                    <div className="flex flex-col gap-4">
-                      <h2 className="mb-4 font-semibold">Variables</h2>
-                      <p>TODO: 识别左侧的variables，用户可以给每个variable填充值</p>
-                    </div>
-                  );
-                } else {
-                  return (
-                    <Alert className="border-dashed">
+                    <Alert className="border-dashed mb-6" variant="destructive">
                       <Braces className="h-4 w-4" />
-                      <AlertTitle>Variables </AlertTitle>
+                      <AlertTitle>Variables Error</AlertTitle>
                       <AlertDescription>
-                      (Coming soon) You can create a variable in prompt template like this: {'{{variable_name}}'}
+                        Failed to load variables. Please try refreshing the page.
                       </AlertDescription>
                     </Alert>
                   );
