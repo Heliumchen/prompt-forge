@@ -383,7 +383,7 @@ const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProps>(({
       </div>
       <textarea
         ref={finalRef}
-        className="textarea w-full p-3 min-h-18 h-fit resize-none focus:outline-none"
+        className="textarea w-full p-3 min-h-18 h-fit resize-none focus:outline-none custom-scrollbar"
         placeholder={currentPlaceholder}
         value={textValue}
         onChange={handleChange}
