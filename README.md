@@ -31,8 +31,3 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 ## Contributing
 
 Contributions are welcome! Feel free to submit issues or pull requests.
-
-## Acknowledgements
-
-This work leverages the power of the open source community.
-For LLM library, we utilized [themaximalist/LLM.js](https://github.com/themaximalist/llm.js).
