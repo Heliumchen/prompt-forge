@@ -104,7 +104,7 @@ export function ResultCell({
         
         {result.content && (
           <div className="bg-muted/50 rounded-md p-3 text-sm">
-            <div className="max-h-32 overflow-y-auto">
+            <div className="max-h-32 overflow-y-auto custom-scrollbar">
               {result.content}
             </div>
           </div>

@@ -32,9 +32,7 @@ vi.mock('./test-set-controls', () => ({
   ),
 }));
 
-vi.mock('./comparison-controls', () => ({
-  ComparisonControls: () => <div data-testid="comparison-controls">Comparison Controls</div>,
-}));
+// ComparisonControls is no longer used - comparison is now integrated into the table header
 
 vi.mock('./test-set-table', () => ({
   TestSetTable: () => <div data-testid="test-set-table">Test Set Table</div>,

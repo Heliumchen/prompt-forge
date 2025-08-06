@@ -9,6 +9,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -18,6 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useProjects } from "@/contexts/ProjectContext";
 
 interface TestSetTableProps {
   testSet: TestSet;
@@ -35,7 +44,7 @@ export function TestSetTable({
   testSet,
   targetVersion,
   versionIdentifier = targetVersion ? `v${targetVersion}` : 'default',
-  comparisonColumns = [],
+  comparisonColumns: _comparisonColumns = [],
   onUpdateTestCase,
   onDeleteTestCase,
   onBulkDeleteTestCases,
@@ -44,6 +53,9 @@ export function TestSetTable({
 }: TestSetTableProps) {
   const [selectedTestCases, setSelectedTestCases] = useState<Set<string>>(new Set());
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [comparisonVersion, setComparisonVersion] = useState<number | null>(null);
+  
+  const { projects } = useProjects();
 
   // Handle individual test case selection
   const handleTestCaseSelection = useCallback((caseId: string, selected: boolean) => {
@@ -80,6 +92,30 @@ export function TestSetTable({
     }
     setShowBulkDeleteDialog(false);
   }, [onBulkDeleteTestCases, selectedTestCases]);
+
+  // Get the associated project for version selection
+  const associatedProject = projects.find(p => p.uid === testSet.associatedProjectUid);
+  const availableVersions = associatedProject?.versions || [];
+  
+  // Filter out the target version from comparison options
+  const availableComparisonVersions = availableVersions.filter(v => v.id !== targetVersion);
+  
+  // Handle comparison version change
+  const handleComparisonVersionChange = useCallback((value: string) => {
+    if (value === "none") {
+      setComparisonVersion(null);
+    } else {
+      setComparisonVersion(parseInt(value, 10));
+    }
+  }, []);
+
+  // Create comparison column based on selected version
+  const dynamicComparisonColumn: ComparisonColumn | null = comparisonVersion ? {
+    id: `comparison-${comparisonVersion}`,
+    versionId: comparisonVersion,
+    versionIdentifier: `v${comparisonVersion}`,
+    label: `#${comparisonVersion}${availableVersions.find(v => v.id === comparisonVersion)?.description ? ` - ${availableVersions.find(v => v.id === comparisonVersion)?.description}` : ''}`,
+  } : null;
 
   const allSelected = testSet.testCases.length > 0 && selectedTestCases.size === testSet.testCases.length;
   const someSelected = selectedTestCases.size > 0 && selectedTestCases.size < testSet.testCases.length;
@@ -155,15 +191,40 @@ export function TestSetTable({
                 Result {versionIdentifier && `(${versionIdentifier})`}
               </th>
 
-              {/* Comparison result columns */}
-              {comparisonColumns.map((column) => (
-                <th 
-                  key={column.id}
-                  className="px-4 py-3 text-left text-sm font-medium text-foreground min-w-[200px] border-l border-border"
-                >
-                  Result ({column.label})
+              {/* Dynamic comparison result column - only show when comparison is active */}
+              {comparisonVersion && (
+                <th className="px-4 py-3 text-left text-sm font-medium text-foreground min-w-[200px] border-l border-border">
+                  Compare (v{comparisonVersion})
                 </th>
-              ))}
+              )}
+
+              {/* Compare selector column - always visible */}
+              <th className="px-4 py-3 text-left text-sm font-medium text-foreground min-w-[150px] border-l border-border">
+                <div className="flex items-center gap-2">
+                  <span>Compare</span>
+                  <Select
+                    value={comparisonVersion ? String(comparisonVersion) : "none"}
+                    onValueChange={handleComparisonVersionChange}
+                  >
+                    <SelectTrigger className="w-[120px] h-7 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="none">None</SelectItem>
+                        {availableComparisonVersions
+                          .slice()
+                          .sort((a, b) => b.id - a.id)
+                          .map(version => (
+                            <SelectItem key={version.id} value={String(version.id)}>
+                              #{version.id}{version.description ? ` - ${version.description}` : ''}
+                            </SelectItem>
+                          ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </th>
               
               {/* Actions column */}
               <th className="px-4 py-3 text-left text-sm font-medium text-foreground w-[60px]">
@@ -178,7 +239,7 @@ export function TestSetTable({
                 testCase={testCase}
                 variableNames={testSet.variableNames}
                 versionIdentifier={versionIdentifier}
-                comparisonColumns={comparisonColumns}
+                comparisonColumns={dynamicComparisonColumn ? [dynamicComparisonColumn] : []}
                 rowIndex={index}
                 selected={selectedTestCases.has(testCase.id)}
                 showSelection={!!onBulkDeleteTestCases}

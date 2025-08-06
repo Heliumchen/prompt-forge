@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback } from "react";
 import { TestCase } from "@/lib/testSetStorage";
-import { Input } from "@/components/ui/input";
+import { AutoTextarea } from "@/components/ui/auto-textarea";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ResultCell } from "./result-cell";
@@ -92,13 +92,14 @@ export function TestCaseRow({
       {/* Variable value cells */}
       {variableNames.map((variableName) => (
         <td key={variableName} className="px-4 py-3">
-          <Input
+          <AutoTextarea
             value={localVariableValues[variableName] || ''}
             onChange={(e) => handleVariableChange(variableName, e.target.value)}
             onBlur={handleVariableBlur}
-            placeholder={`Enter ${variableName}...`}
+            placeholder={`${variableName}`}
+            maxHeight={220}
             className={cn(
-              "min-w-[120px]",
+              "min-w-[160px] custom-scrollbar",
               hasUnsavedChanges && "border-yellow-400 dark:border-yellow-600"
             )}
             aria-label={`${variableName} for test case ${rowIndex + 1}`}
@@ -115,7 +116,7 @@ export function TestCaseRow({
         />
       </td>
 
-      {/* Comparison result cells */}
+      {/* Comparison result cells - only show when comparison is active */}
       {comparisonColumns.map((column) => {
         const comparisonResult = testCase.results[column.versionIdentifier];
         return (
@@ -128,6 +129,11 @@ export function TestCaseRow({
           </td>
         );
       })}
+
+      {/* Compare selector cell - always visible to match header */}
+      <td className="px-4 py-3 border-l border-border">
+        {/* Empty cell to maintain column alignment */}
+      </td>
 
       {/* Actions cell */}
       <td className="px-4 py-3">

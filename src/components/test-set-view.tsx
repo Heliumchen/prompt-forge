@@ -2,7 +2,6 @@
 
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { TestSetControls } from "./test-set-controls";
-import { ComparisonControls, ComparisonColumn } from "./comparison-controls";
 import { TestSetTable } from "./test-set-table";
 import { useTestSets } from "@/contexts/TestSetContext";
 import { useProjects } from "@/contexts/ProjectContext";
@@ -64,13 +63,12 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
     deleteTestCase,
     bulkDeleteTestCases,
     runSingleTest,
-    runAllTests,
+    runAllTests: _runAllTests,
     isBatchRunning
   } = useTestSets();
   const { projects } = useProjects();
 
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
-  const [comparisonColumns, setComparisonColumns] = useState<ComparisonColumn[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,16 +107,13 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
       toast.error("Selected version no longer exists. Please select a different version.");
     }
 
-    // Clean up comparison columns for non-existent versions
-    const validComparisonColumns = comparisonColumns.filter(col => 
-      associatedProject.versions.find(v => v.id === col.versionId)
-    );
-    
-    if (validComparisonColumns.length !== comparisonColumns.length) {
-      setComparisonColumns(validComparisonColumns);
-      toast.info("Some comparison columns were removed because their versions no longer exist.");
+    // Auto-select the latest version (highest version number) if no version is selected
+    if (!selectedVersion && associatedProject.versions.length > 0) {
+      const latestVersion = Math.max(...associatedProject.versions.map(v => v.id));
+      setSelectedVersion(latestVersion);
     }
-  }, [currentTestSet, associatedProject, selectedVersion, comparisonColumns]);
+
+  }, [currentTestSet, associatedProject, selectedVersion]);
 
   // Error handler for the error boundary
   const handleError = useCallback((error: Error) => {
@@ -236,67 +231,7 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
     }
   }, [currentTestSet, associatedProject, selectedVersion, runSingleTest]);
 
-  // Handle adding comparison column
-  const handleAddComparisonColumn = useCallback((column: ComparisonColumn) => {
-    setComparisonColumns(prev => [...prev, column]);
-  }, []);
 
-  // Handle removing comparison column
-  const handleRemoveComparisonColumn = useCallback((columnId: string) => {
-    setComparisonColumns(prev => prev.filter(col => col.id !== columnId));
-  }, []);
-
-  // Handle running comparison tests with enhanced validation
-  const handleRunComparisonTests = useCallback(async (columnId: string) => {
-    if (!currentTestSet || !associatedProject) {
-      toast.error("Test set or project not available");
-      return;
-    }
-
-    const column = comparisonColumns.find(col => col.id === columnId);
-    if (!column) {
-      toast.error("Comparison column not found");
-      return;
-    }
-
-    // Verify the version exists
-    const version = associatedProject.versions.find(v => v.id === column.versionId);
-    if (!version) {
-      toast.error(`Version #${column.versionId} not found`);
-      return;
-    }
-
-    // Validate version has prompts
-    if (!version.data.prompts || version.data.prompts.length === 0) {
-      toast.error(`Version #${column.versionId} has no prompts to test`);
-      return;
-    }
-
-    // Validate model configuration
-    if (!version.data.modelConfig || !version.data.modelConfig.model) {
-      toast.error(`Version #${column.versionId} has no model configuration`);
-      return;
-    }
-
-    // Check if there are test cases to run
-    if (currentTestSet.testCases.length === 0) {
-      toast.error("No test cases to run. Please add test cases first.");
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      await runAllTests(currentTestSet.uid, column.versionId, column.versionIdentifier);
-      toast.success(`Completed tests for version #${column.versionId}`);
-    } catch (error) {
-      console.error("Failed to run comparison tests:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to run comparison tests";
-      toast.error(errorMessage);
-      setError(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentTestSet, associatedProject, comparisonColumns, runAllTests]);
 
   // Show error state
   if (error) {
@@ -361,22 +296,12 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
           selectedVersion={selectedVersion}
         />
 
-        {/* Comparison controls */}
-        <ComparisonControls
-          testSetUid={testSetUid}
-          comparisonColumns={comparisonColumns}
-          onAddComparisonColumn={handleAddComparisonColumn}
-          onRemoveComparisonColumn={handleRemoveComparisonColumn}
-          onRunComparisonTests={handleRunComparisonTests}
-        />
-
         {/* Test set table */}
         <div className="flex-1 overflow-auto">
           <TestSetTable
             testSet={currentTestSet}
             targetVersion={selectedVersion || undefined}
             versionIdentifier={versionIdentifier}
-            comparisonColumns={comparisonColumns}
             onUpdateTestCase={handleUpdateTestCase}
             onDeleteTestCase={handleDeleteTestCase}
             onBulkDeleteTestCases={handleBulkDeleteTestCases}

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   TestSet,
+  TestResult,
   createTestSet,
   createTestCase,
   createTestResult,
@@ -481,7 +482,7 @@ describe('testSetStorage', () => {
         
         expect(() => updateTestResult(baseTestSet, '', 'version-1', testResult)).toThrow('Test case ID is required');
         expect(() => updateTestResult(baseTestSet, 'case-1', '', testResult)).toThrow('Version identifier is required');
-        expect(() => updateTestResult(baseTestSet, 'case-1', 'version-1', null as any)).toThrow('Test result is required');
+        expect(() => updateTestResult(baseTestSet, 'case-1', 'version-1', null as unknown as TestResult)).toThrow('Test result is required');
       });
     });
 
@@ -836,7 +837,7 @@ describe('testSetStorage', () => {
       });
 
       it('should throw error for invalid conflicts array', () => {
-        expect(() => handleTestCaseDataUpdates(testSet, 'invalid' as any)).toThrow();
+        expect(() => handleTestCaseDataUpdates(testSet, 'invalid' as unknown as VariableConflict[])).toThrow();
       });
     });
   });

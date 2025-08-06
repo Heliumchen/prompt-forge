@@ -5,7 +5,7 @@ import {
   MoreHorizontal,
   Trash2,
   Plus,
-  TestTube,
+  FlaskConical,
   Download,
   FileText,
 } from "lucide-react";
@@ -61,7 +61,7 @@ export function NavTestSets() {
     updateTestSet,
   } = useTestSets();
   const { projects } = useProjects();
-  
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newTestSetName, setNewTestSetName] = useState("");
   const [selectedProjectUid, setSelectedProjectUid] = useState("");
@@ -123,7 +123,7 @@ export function NavTestSets() {
   const handleExportJSON = (testSet: TestSet) => {
     try {
       const associatedProject = projects.find(p => p.uid === testSet.associatedProjectUid);
-      
+
       const exportData = {
         testSetName: testSet.name,
         projectName: associatedProject?.name || 'Unknown Project',
@@ -213,7 +213,7 @@ export function NavTestSets() {
                     currentTestSet?.uid === testSet.uid ? "bg-accent" : ""
                   }
                 >
-                  <TestTube />
+                  <FlaskConical />
                   <div className="flex flex-col items-start">
                     <span>{testSet.name}</span>
                     <span className="text-xs text-muted-foreground">
@@ -314,7 +314,7 @@ export function NavTestSets() {
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleAddTestSet}
               disabled={!newTestSetName.trim() || !selectedProjectUid}
             >
