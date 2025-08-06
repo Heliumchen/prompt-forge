@@ -7,6 +7,7 @@ import {
 } from "lucide-react"
 
 import { NavProjects } from "@/components/nav-projects"
+import { NavTestSets } from "@/components/nav-test-sets"
 import { NavAPIKeysSettings } from "@/components/nav-api-keys-settings"
 import {
   Sidebar,
@@ -43,6 +44,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavProjects />
+        <NavTestSets />
       </SidebarContent>
       <SidebarFooter className="p-0">
         <SidebarGroup>

@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Plus, Play, Braces, Swords, MessageCircleOff, Settings2 } from "lucide-react";
 import { useProjects } from "@/contexts/ProjectContext";
+import { useTestSets } from "@/contexts/TestSetContext";
 import { ModelSelect } from "@/components/model-select";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ProjectSelect } from "@/components/project-select";
@@ -41,6 +42,7 @@ import { Message, Project, Prompt } from "@/lib/storage";
 import { DialogModelSettings } from "@/components/dialog-model-settings";
 import { VersionSelect } from "@/components/version-select";
 import { VariablesSection } from "@/components/variables-section";
+import { TestSetView } from "@/components/test-set-view";
 
 
 // 定义类型来区分是处理 prompt 还是 message
@@ -63,6 +65,8 @@ export default function Page() {
     getDetectedVariables,
     processPromptsWithVariables,
   } = useProjects();
+
+  const { currentTestSet } = useTestSets();
 
   const [selectedModel, setSelectedModel] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -675,7 +679,9 @@ export default function Page() {
               <BreadcrumbList>
                 <BreadcrumbItem className="hidden md:block">
                   <BreadcrumbPage>
-                    {currentProject
+                    {currentTestSet
+                      ? currentTestSet.name
+                      : currentProject
                       ? currentProject.name
                       : "No Project Selected"}
                   </BreadcrumbPage>
@@ -683,13 +689,16 @@ export default function Page() {
               </BreadcrumbList>
             </Breadcrumb>
           </div>
-          {currentProject ? (
+          {currentProject && !currentTestSet ? (
             <div className="flex items-center gap-2 px-4">
               <VersionSelect project={currentProject} />
             </div>
           ) : null}
         </header>
-        <div className="flex pl-2">
+        {currentTestSet ? (
+          <TestSetView testSetUid={currentTestSet.uid} />
+        ) : (
+          <div className="flex pl-2">
           <div className="flex flex-col rounded-xl w-1/2 p-4">
             <h2 className="mb-4 font-semibold">Prompt Template</h2>
 
@@ -916,7 +925,8 @@ export default function Page() {
                 <IntroBlock />
               )}
           </div>
-        </div>
+          </div>
+        )}
       </SidebarInset>
     </SidebarProvider>
   );

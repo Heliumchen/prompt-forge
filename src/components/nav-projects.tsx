@@ -27,6 +27,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useProjects } from "@/contexts/ProjectContext";
+import { useTestSets } from "@/contexts/TestSetContext";
 import { Project } from "@/lib/storage";
 import { useState } from "react";
 import {
@@ -51,6 +52,7 @@ export function NavProjects() {
     deleteProject,
     updateProject,
   } = useProjects();
+  const { setCurrentTestSet } = useTestSets();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectIcon, setNewProjectIcon] = useState("Frame");
@@ -63,6 +65,8 @@ export function NavProjects() {
     const project = projects.find((p) => p.uid === projectUid);
     if (project) {
       setCurrentProject(project);
+      // Clear current test set when switching to project view
+      setCurrentTestSet(null);
     }
   };
 
@@ -81,8 +85,16 @@ export function NavProjects() {
         ...projectToRename,
         name: renameProjectName.trim(),
       };
-      updateProject(updatedProject);
+      
+      // 先关闭对话框，然后更新项目
       setIsRenameDialogOpen(false);
+      setProjectToRename(null);
+      setRenameProjectName("");
+      
+      // 使用 setTimeout 确保对话框完全关闭后再更新项目
+      setTimeout(() => {
+        updateProject(updatedProject);
+      }, 100);
     }
   };
 
@@ -287,7 +299,26 @@ export function NavProjects() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
+      <Dialog 
+        open={isRenameDialogOpen} 
+        onOpenChange={(open) => {
+          setIsRenameDialogOpen(open);
+          if (!open) {
+            // 清理状态当对话框关闭时
+            setProjectToRename(null);
+            setRenameProjectName("");
+            
+            // 强制重置焦点到 document.body，避免焦点陷阱
+            setTimeout(() => {
+              if (document.activeElement && document.activeElement !== document.body) {
+                (document.activeElement as HTMLElement).blur?.();
+              }
+              document.body.focus();
+              document.body.blur();
+            }, 150);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Rename Project</DialogTitle>
