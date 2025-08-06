@@ -119,6 +119,86 @@ export function NavTestSets() {
     return project ? project.name : "Unknown Project";
   };
 
+  // Handle export JSON
+  const handleExportJSON = (testSet: TestSet) => {
+    try {
+      const associatedProject = projects.find(p => p.uid === testSet.associatedProjectUid);
+      
+      const exportData = {
+        testSetName: testSet.name,
+        projectName: associatedProject?.name || 'Unknown Project',
+        exportedAt: new Date().toISOString(),
+        variableNames: testSet.variableNames,
+        testCases: testSet.testCases.map((testCase, index) => ({
+          testCaseIndex: index + 1,
+          testCaseId: testCase.id,
+          variableValues: testCase.variableValues,
+          results: testCase.results
+        }))
+      };
+
+      // Create and download JSON file
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+        type: 'application/json'
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${testSet.name.replace(/[^a-zA-Z0-9]/g, '_')}_testset.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success("Test set exported as JSON successfully");
+    } catch (error) {
+      console.error("Failed to export JSON:", error);
+      toast.error("Failed to export JSON");
+    }
+  };
+
+  // Handle export CSV
+  const handleExportCSV = (testSet: TestSet) => {
+    try {
+      // Create CSV headers
+      const headers = [
+        'Test Case #',
+        ...testSet.variableNames,
+        'Results (JSON)'
+      ];
+
+      // Create CSV rows
+      const rows = testSet.testCases.map((testCase, index) => {
+        return [
+          index + 1,
+          ...testSet.variableNames.map(name =>
+            `"${(testCase.variableValues[name] || '').replace(/"/g, '""')}"`
+          ),
+          `"${JSON.stringify(testCase.results).replace(/"/g, '""')}"`
+        ];
+      });
+
+      // Combine headers and rows
+      const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+
+      // Create and download CSV file
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${testSet.name.replace(/[^a-zA-Z0-9]/g, '_')}_testset.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success("Test set exported as CSV successfully");
+    } catch (error) {
+      console.error("Failed to export CSV:", error);
+      toast.error("Failed to export CSV");
+    }
+  };
+
   return (
     <>
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
@@ -158,6 +238,19 @@ export function NavTestSets() {
                     >
                       <FolderPen className="text-muted-foreground" />
                       <span>Rename</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => handleExportJSON(testSet)}
+                    >
+                      <Download className="text-muted-foreground" />
+                      <span>Export JSON</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleExportCSV(testSet)}
+                    >
+                      <FileText className="text-muted-foreground" />
+                      <span>Export CSV</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Play, Plus, RefreshCw, StopCircle, Download, History } from "lucide-react";
+import { Play, Plus, RefreshCw, StopCircle, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -120,109 +120,7 @@ export function TestSetControls({
     }
   };
 
-  // Handle export results
-  const handleExportResults = () => {
-    const targetVersion = externalSelectedVersion || selectedVersion;
-    if (!currentTestSet || !targetVersion) {
-      toast.error("Please select a version");
-      return;
-    }
 
-    try {
-      const versionIdentifier = `v${targetVersion}`;
-      const exportData = {
-        testSetName: currentTestSet.name,
-        projectName: associatedProject?.name || 'Unknown Project',
-        versionId: targetVersion,
-        versionIdentifier,
-        exportedAt: new Date().toISOString(),
-        variableNames: currentTestSet.variableNames,
-        results: currentTestSet.testCases.map((testCase, index) => ({
-          testCaseIndex: index + 1,
-          testCaseId: testCase.id,
-          variableValues: testCase.variableValues,
-          result: testCase.results[versionIdentifier] || null
-        }))
-      };
-
-      // Create and download JSON file
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-        type: 'application/json'
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${currentTestSet.name.replace(/[^a-zA-Z0-9]/g, '_')}_results_v${targetVersion}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      toast.success("Results exported successfully");
-    } catch (error) {
-      console.error("Failed to export results:", error);
-      toast.error("Failed to export results");
-    }
-  };
-
-  // Handle export CSV
-  const handleExportCSV = () => {
-    const targetVersion = externalSelectedVersion || selectedVersion;
-    if (!currentTestSet || !targetVersion) {
-      toast.error("Please select a version");
-      return;
-    }
-
-    try {
-      const versionIdentifier = `v${targetVersion}`;
-
-      // Create CSV headers
-      const headers = [
-        'Test Case #',
-        ...currentTestSet.variableNames,
-        'Result Status',
-        'Result Content',
-        'Execution Time (ms)',
-        'Error Message',
-        'Timestamp'
-      ];
-
-      // Create CSV rows
-      const rows = currentTestSet.testCases.map((testCase, index) => {
-        const result = testCase.results[versionIdentifier];
-        return [
-          index + 1,
-          ...currentTestSet.variableNames.map(name =>
-            `"${(testCase.variableValues[name] || '').replace(/"/g, '""')}"`
-          ),
-          result?.status || 'Not Run',
-          result?.content ? `"${result.content.replace(/"/g, '""')}"` : '',
-          result?.executionTime || '',
-          result?.error ? `"${result.error.replace(/"/g, '""')}"` : '',
-          result?.timestamp || ''
-        ];
-      });
-
-      // Combine headers and rows
-      const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
-
-      // Create and download CSV file
-      const blob = new Blob([csvContent], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${currentTestSet.name.replace(/[^a-zA-Z0-9]/g, '_')}_results_v${targetVersion}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      toast.success("Results exported as CSV successfully");
-    } catch (error) {
-      console.error("Failed to export CSV:", error);
-      toast.error("Failed to export CSV");
-    }
-  };
 
   // Check if batch is currently running
   const batchRunning = currentTestSet ? isBatchRunning(currentTestSet.uid) : false;
@@ -330,42 +228,7 @@ export function TestSetControls({
         </Tooltip>
       </TooltipProvider>
 
-      {/* Export Results Buttons */}
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              onClick={handleExportResults}
-              disabled={!(externalSelectedVersion || selectedVersion)}
-            >
-              <Download className="h-4 w-4" />
-              Export JSON
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Export test results as JSON file</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
 
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              onClick={handleExportCSV}
-              disabled={!(externalSelectedVersion || selectedVersion)}
-            >
-              <Download className="h-4 w-4" />
-              Export CSV
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Export test results as CSV file</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
 
       {/* Result History Button */}
       <TooltipProvider>
