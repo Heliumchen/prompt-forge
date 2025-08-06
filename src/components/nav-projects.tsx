@@ -73,9 +73,12 @@ export function NavProjects() {
   const openRenameDialog = (projectUid: string) => {
     const project = projects.find((p) => p.uid === projectUid);
     if (project) {
-      setProjectToRename(project);
-      setRenameProjectName(project.name);
-      setIsRenameDialogOpen(true);
+      // 延迟打开dialog，确保dropdown先关闭
+      setTimeout(() => {
+        setProjectToRename(project);
+        setRenameProjectName(project.name);
+        setIsRenameDialogOpen(true);
+      }, 100);
     }
   };
 
@@ -85,12 +88,12 @@ export function NavProjects() {
         ...projectToRename,
         name: renameProjectName.trim(),
       };
-      
+
       // 先关闭对话框，然后更新项目
       setIsRenameDialogOpen(false);
       setProjectToRename(null);
       setRenameProjectName("");
-      
+
       // 使用 setTimeout 确保对话框完全关闭后再更新项目
       setTimeout(() => {
         updateProject(updatedProject);
@@ -299,23 +302,13 @@ export function NavProjects() {
         </DialogContent>
       </Dialog>
 
-      <Dialog 
-        open={isRenameDialogOpen} 
+      <Dialog
+        open={isRenameDialogOpen}
         onOpenChange={(open) => {
           setIsRenameDialogOpen(open);
           if (!open) {
-            // 清理状态当对话框关闭时
             setProjectToRename(null);
             setRenameProjectName("");
-            
-            // 强制重置焦点到 document.body，避免焦点陷阱
-            setTimeout(() => {
-              if (document.activeElement && document.activeElement !== document.body) {
-                (document.activeElement as HTMLElement).blur?.();
-              }
-              document.body.focus();
-              document.body.blur();
-            }, 150);
           }
         }}
       >
