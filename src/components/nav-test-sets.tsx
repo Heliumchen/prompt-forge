@@ -8,6 +8,7 @@ import {
   FlaskConical,
   Download,
   FileText,
+  Upload,
 } from "lucide-react";
 
 import {
@@ -49,6 +50,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { CSVImportDialog } from "@/components/csv-import-dialog";
 
 export function NavTestSets() {
   const { isMobile } = useSidebar();
@@ -68,6 +70,8 @@ export function NavTestSets() {
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
   const [testSetToRename, setTestSetToRename] = useState<TestSet | null>(null);
   const [renameTestSetName, setRenameTestSetName] = useState("");
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [testSetToImport, setTestSetToImport] = useState<TestSet | null>(null);
 
   const handleTestSetClick = (testSetUid: string) => {
     const testSet = testSets.find((ts) => ts.uid === testSetUid);
@@ -199,6 +203,14 @@ export function NavTestSets() {
     }
   };
 
+  const handleImportCSV = (testSet: TestSet) => {
+    // 延迟打开dialog，确保dropdown先关闭
+    setTimeout(() => {
+      setTestSetToImport(testSet);
+      setIsImportDialogOpen(true);
+    }, 100);
+  };
+
   return (
     <>
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
@@ -251,6 +263,12 @@ export function NavTestSets() {
                     >
                       <FileText className="text-muted-foreground" />
                       <span>Export CSV</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleImportCSV(testSet)}
+                    >
+                      <Upload className="text-muted-foreground" />
+                      <span>Import CSV</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -354,6 +372,24 @@ export function NavTestSets() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* CSV Import Dialog */}
+      {testSetToImport && (
+        <CSVImportDialog
+          isOpen={isImportDialogOpen}
+          onClose={() => {
+            setIsImportDialogOpen(false);
+            setTestSetToImport(null);
+          }}
+          onOpenChange={(open) => {
+            setIsImportDialogOpen(open);
+            if (!open) {
+              setTestSetToImport(null);
+            }
+          }}
+          testSet={testSetToImport}
+        />
+      )}
     </>
   );
 }
