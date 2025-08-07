@@ -1,32 +1,35 @@
-Prompt Forge is a prompt engineering tool designed to help users create, test, and optimize prompts for interacting with large language models (LLMs).
+# Prompt Forge
+
+A powerful, local-first prompt engineering tool that helps you create, test, and optimize prompts for large language models (LLMs).
 
 ## Key Features
 
-- Local-First: All data is stored locally in the browser and never uploaded to any server, ensuring the privacy and security of your prompts and data.
-- Open-Source: Fully open-source code that you can review, modify, or contribute to at any time to meet your specific needs.
-- Powerful Playground: Provides an intuitive interface for testing and debugging prompts, allowing real-time result viewing and adjustments.
-- Evaluation with LLM-as-a-User: Uses LLMs as simulated users to evaluate and compare different prompts, providing objective feedback.
-- Prompt Versioning: Easily track and manage different versions of prompts, compare changes, and roll back to previous versions when needed.
+- **Local-First**: All data is stored locally in your browser with no server uploads, ensuring complete privacy and security of your prompts and data.
+- **Open-Source**: Fully open-source codebase that you can review, modify, and contribute to according to your needs.
+- **Intuitive Playground**: Test and debug prompts with an easy-to-use interface that provides real-time results and instant feedback.
+- **Test Sets**: Create and run batch tests with multiple test cases to systematically evaluate prompt performance across different scenarios.
+- **Multi-Turn Conversation Simulation**: Use additional prompts as conversation partners to simulate realistic multi-turn dialogues, helping evaluate prompt performance in dynamic interactions.
+- **Version Control**: Track, manage, and compare different prompt versions with easy rollback capabilities when needed.
 
 ## Getting Started
 
-First, run the development server:
+Get up and running in minutes:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/prompt-forge.git  
+git clone https://github.com/yourusername/prompt-forge.git
 
 # Navigate to the project directory
-cd prompt-forge  
+cd prompt-forge
 
 # Install dependencies
-npm install  
+npm install
 
 # Start the development server
-npm run dev  
+npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser to start using Prompt Forge.
 
 ## Contributing
 
