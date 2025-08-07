@@ -27,6 +27,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useProjects } from "@/contexts/ProjectContext";
+import { useTestSets } from "@/contexts/TestSetContext";
 
 interface TestSetTableProps {
   testSet: TestSet;
@@ -55,9 +56,14 @@ export function TestSetTable({
 }: TestSetTableProps) {
   const [selectedTestCases, setSelectedTestCases] = useState<Set<string>>(new Set());
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
-  const [comparisonVersion, setComparisonVersion] = useState<number | null>(null);
   
   const { projects } = useProjects();
+  const { updateTestSetUIState } = useTestSets();
+  
+  // Get comparison version from testSet's UI state
+  const comparisonVersion = testSet.uiState?.selectedComparisonVersion 
+    ? parseInt(testSet.uiState.selectedComparisonVersion, 10) 
+    : null;
 
   // Handle individual test case selection
   const handleTestCaseSelection = useCallback((caseId: string, selected: boolean) => {
@@ -105,11 +111,11 @@ export function TestSetTable({
   // Handle comparison version change
   const handleComparisonVersionChange = useCallback((value: string) => {
     if (value === "none") {
-      setComparisonVersion(null);
+      updateTestSetUIState(testSet.uid, { selectedComparisonVersion: undefined });
     } else {
-      setComparisonVersion(parseInt(value, 10));
+      updateTestSetUIState(testSet.uid, { selectedComparisonVersion: value });
     }
-  }, []);
+  }, [testSet.uid, updateTestSetUIState]);
 
   // Create comparison column based on selected version
   const dynamicComparisonColumn: ComparisonColumn | null = comparisonVersion ? {
@@ -188,7 +194,7 @@ export function TestSetTable({
                 <div className="flex items-center gap-2">
                   <span>Compare</span>
                   <Select
-                    value={comparisonVersion ? String(comparisonVersion) : "none"}
+                    value={testSet.uiState?.selectedComparisonVersion || "none"}
                     onValueChange={handleComparisonVersionChange}
                   >
                     <SelectTrigger className="w-[120px] h-7 text-xs">

@@ -17,6 +17,11 @@ export interface TestCase {
   results: Record<string, TestResult>; // version identifier -> result
 }
 
+// UI state for TestSet preferences
+export interface TestSetUIState {
+  selectedComparisonVersion?: string; // Version identifier for comparison column
+}
+
 // Test set contains the complete test configuration and data
 export interface TestSet {
   uid: string;
@@ -24,6 +29,7 @@ export interface TestSet {
   associatedProjectUid: string;
   variableNames: string[]; // ordered list of variable names for table columns (defines table structure)
   testCases: TestCase[];
+  uiState?: TestSetUIState; // UI preferences and state
   createdAt: string;
   updatedAt: string;
 }
@@ -54,6 +60,7 @@ export const createTestSet = (name: string, associatedProjectUid: string): TestS
     associatedProjectUid,
     variableNames: [],
     testCases: [],
+    uiState: {},
     createdAt: now,
     updatedAt: now
   };
@@ -145,6 +152,11 @@ export const validateTestSet = (testSet: unknown): testSet is TestSet => {
     throw new Error('Test set must have a valid updatedAt timestamp');
   }
 
+  // Validate uiState if present (optional field for backward compatibility)
+  if (ts.uiState !== undefined && (ts.uiState === null || typeof ts.uiState !== 'object')) {
+    throw new Error('Test set uiState must be an object if present');
+  }
+
   // Validate variable names are strings
   ts.variableNames.forEach((name, index) => {
     if (typeof name !== 'string') {
@@ -180,7 +192,14 @@ export const validateTestSet = (testSet: unknown): testSet is TestSet => {
  * @returns Migrated test set
  */
 export const migrateTestSet = (testSet: TestSet): TestSet => {
-  // Currently no migrations needed, but this function is here for future use
+  // Add uiState if missing (backward compatibility)
+  if (!testSet.uiState) {
+    return {
+      ...testSet,
+      uiState: {}
+    };
+  }
+  
   return testSet;
 };
 
@@ -297,6 +316,29 @@ export const deleteTestSet = (uid: string): void => {
   }
   
   saveTestSets(filteredTestSets);
+};
+
+/**
+ * Updates UI state for a test set
+ * @param testSet - Test set to update
+ * @param uiState - New UI state to merge with existing state
+ * @returns Updated test set
+ */
+export const updateTestSetUIState = (testSet: TestSet, uiState: Partial<TestSetUIState>): TestSet => {
+  validateTestSet(testSet);
+  
+  if (!uiState || typeof uiState !== 'object') {
+    throw new Error('UI state must be an object');
+  }
+
+  return {
+    ...testSet,
+    uiState: {
+      ...testSet.uiState,
+      ...uiState
+    },
+    updatedAt: new Date().toISOString()
+  };
 };
 
 /**

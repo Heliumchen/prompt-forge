@@ -12,7 +12,7 @@ import {
   updateTestCase as updateTestCaseInTestSet,
   deleteTestCase as deleteTestCaseFromTestSet,
   updateTestResult,
-
+  updateTestSetUIState,
   clearResultHistory,
   getResultStatistics,
   testSetNameExists,
@@ -25,6 +25,7 @@ import {
   TestSet,
   TestCase,
   TestResult,
+  TestSetUIState,
 } from "@/lib/testSetStorage";
 import {
   getProjectByUid,
@@ -79,6 +80,9 @@ interface TestSetContextType {
     successRate: number;
     averageExecutionTime: number;
   };
+  
+  // UI state management
+  updateTestSetUIState: (testSetUid: string, uiState: Partial<TestSetUIState>) => void;
   
   // Utility functions
   isTestSetNameUnique: (name: string, projectUid: string, excludeUid?: string) => boolean;
@@ -792,6 +796,17 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
     return generateUniqueTestSetName(baseName, projectUid);
   };
 
+  // UI state management
+  const updateTestSetUIStateFn = (testSetUid: string, uiState: Partial<TestSetUIState>) => {
+    const testSet = testSets.find(ts => ts.uid === testSetUid);
+    if (!testSet) {
+      throw new Error('Test set not found');
+    }
+
+    const updatedTestSet = updateTestSetUIState(testSet, uiState);
+    updateTestSet(updatedTestSet);
+  };
+
   const value: TestSetContextType = {
     testSets,
     currentTestSet,
@@ -816,6 +831,7 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
     updateTestResult: updateTestResultFn,
     clearResultHistory: clearResultHistoryFn,
     getResultStatistics: getResultStatisticsFn,
+    updateTestSetUIState: updateTestSetUIStateFn,
     isTestSetNameUnique,
     generateUniqueTestSetName: generateUniqueTestSetNameFn,
   };
