@@ -148,7 +148,7 @@ export function NavTestSets() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${testSet.name.replace(/[^a-zA-Z0-9]/g, '_')}_testset.json`;
+      link.download = `${testSet.name.replace(/[<>:"/\\|?*]/g, '_')}_testset.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -190,7 +190,7 @@ export function NavTestSets() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${testSet.name.replace(/[^a-zA-Z0-9]/g, '_')}_testset.csv`;
+      link.download = `${testSet.name.replace(/[<>:"/\\|?*]/g, '_')}_testset.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

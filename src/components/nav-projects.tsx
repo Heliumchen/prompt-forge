@@ -132,7 +132,7 @@ export function NavProjects() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${project.name}.json`;
+      a.download = `${project.name.replace(/[<>:"/\\|?*]/g, '_')}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

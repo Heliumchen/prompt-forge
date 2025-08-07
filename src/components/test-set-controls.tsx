@@ -32,7 +32,7 @@ interface TestSetControlsProps {
 export function TestSetControls({
   testSetUid: _testSetUid,
   onVersionChange,
-  selectedVersion: externalSelectedVersion
+  selectedVersion: externalSelectedVersion,
 }: TestSetControlsProps) {
   const {
     currentTestSet,
@@ -41,18 +41,22 @@ export function TestSetControls({
     cancelBatchExecution,
     isBatchRunning,
     addTestCase,
-    updateTestSet
+    updateTestSet,
   } = useTestSets();
   const { projects } = useProjects();
 
-  const [selectedVersion, setSelectedVersion] = useState<number | null>(externalSelectedVersion || null);
-  const [isVariableSyncDialogOpen, setIsVariableSyncDialogOpen] = useState(false);
-  const [isResultHistoryDialogOpen, setIsResultHistoryDialogOpen] = useState(false);
+  const [selectedVersion, setSelectedVersion] = useState<number | null>(
+    externalSelectedVersion || null,
+  );
+  const [isVariableSyncDialogOpen, setIsVariableSyncDialogOpen] =
+    useState(false);
+  const [isResultHistoryDialogOpen, setIsResultHistoryDialogOpen] =
+    useState(false);
   const [isRunning, setIsRunning] = useState(false);
 
   // Get the associated project
   const associatedProject = currentTestSet
-    ? projects.find(p => p.uid === currentTestSet.associatedProjectUid)
+    ? projects.find((p) => p.uid === currentTestSet.associatedProjectUid)
     : null;
 
   // Get available versions from the associated project
@@ -68,15 +72,16 @@ export function TestSetControls({
   // Check if all test cases have results for the selected version
   const hasAllTestsRun = () => {
     if (!currentTestSet || !currentTestSet.testCases.length) return false;
-    
+
     const targetVersion = externalSelectedVersion || selectedVersion;
     if (!targetVersion) return false;
-    
+
     const versionIdentifier = `v${targetVersion}`;
-    return currentTestSet.testCases.every(testCase => 
-      testCase.results[versionIdentifier] && 
-      (testCase.results[versionIdentifier].status === 'completed' || 
-       testCase.results[versionIdentifier].status === 'error')
+    return currentTestSet.testCases.every(
+      (testCase) =>
+        testCase.results[versionIdentifier] &&
+        (testCase.results[versionIdentifier].status === "completed" ||
+          testCase.results[versionIdentifier].status === "error"),
     );
   };
 
@@ -100,7 +105,7 @@ export function TestSetControls({
     }
 
     const allTestsRun = hasAllTestsRun();
-    
+
     setIsRunning(true);
     try {
       if (allTestsRun) {
@@ -114,7 +119,9 @@ export function TestSetControls({
       }
     } catch (error) {
       console.error("Batch execution failed:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to run tests");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to run tests",
+      );
     } finally {
       setIsRunning(false);
     }
@@ -145,10 +152,10 @@ export function TestSetControls({
     }
   };
 
-
-
   // Check if batch is currently running
-  const batchRunning = currentTestSet ? isBatchRunning(currentTestSet.uid) : false;
+  const batchRunning = currentTestSet
+    ? isBatchRunning(currentTestSet.uid)
+    : false;
 
   if (!currentTestSet) {
     return (
@@ -164,7 +171,11 @@ export function TestSetControls({
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium">Target Version:</span>
         <Select
-          value={(externalSelectedVersion || selectedVersion) ? String(externalSelectedVersion || selectedVersion) : ""}
+          value={
+            externalSelectedVersion || selectedVersion
+              ? String(externalSelectedVersion || selectedVersion)
+              : ""
+          }
           onValueChange={handleVersionChange}
         >
           <SelectTrigger className="w-[180px]">
@@ -175,9 +186,10 @@ export function TestSetControls({
               {availableVersions
                 .slice()
                 .sort((a, b) => b.id - a.id)
-                .map(version => (
+                .map((version) => (
                   <SelectItem key={version.id} value={String(version.id)}>
-                    #{version.id}{version.description ? ` - ${version.description}` : ''}
+                    #{version.id}
+                    {version.description ? ` - ${version.description}` : ""}
                   </SelectItem>
                 ))}
             </SelectGroup>
@@ -201,10 +213,13 @@ export function TestSetControls({
             ) : (
               <Button
                 onClick={handleRunAllTests}
-                disabled={!(externalSelectedVersion || selectedVersion) || currentTestSet.testCases.length === 0}
+                disabled={
+                  !(externalSelectedVersion || selectedVersion) ||
+                  currentTestSet.testCases.length === 0
+                }
               >
                 <Play className="h-4 w-4" />
-                {hasAllTestsRun() ? 'Re-run All' : 'Run All'}
+                {hasAllTestsRun() ? "Re-run All" : "Run All"}
               </Button>
             )}
           </TooltipTrigger>
@@ -212,10 +227,9 @@ export function TestSetControls({
             <p>
               {batchRunning || isRunning
                 ? "Cancel batch execution"
-                : hasAllTestsRun() 
-                  ? "Re-run all test cases for selected version" 
-                  : "Run all test cases for selected version"
-              }
+                : hasAllTestsRun()
+                  ? "Re-run all test cases"
+                  : "Run all test cases"}
             </p>
           </TooltipContent>
         </Tooltip>
@@ -255,8 +269,6 @@ export function TestSetControls({
         </Tooltip>
       </TooltipProvider>
 
-
-
       {/* Result History Button */}
       <TooltipProvider>
         <Tooltip>
@@ -288,7 +300,10 @@ export function TestSetControls({
                 updateTestSet(result.updatedTestSet);
                 toast.success("Variables synchronized successfully");
               } catch (error) {
-                console.error("Failed to apply variable synchronization:", error);
+                console.error(
+                  "Failed to apply variable synchronization:",
+                  error,
+                );
                 toast.error("Failed to synchronize variables");
               }
             }
@@ -303,7 +318,7 @@ export function TestSetControls({
           onOpenChange={setIsResultHistoryDialogOpen}
           testSet={currentTestSet}
           versionIdentifier={
-            (externalSelectedVersion || selectedVersion)
+            externalSelectedVersion || selectedVersion
               ? `v${externalSelectedVersion || selectedVersion}`
               : undefined
           }
