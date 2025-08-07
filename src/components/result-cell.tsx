@@ -227,10 +227,10 @@ export function ResultCell({
       <ResultDiffDialog
         open={showDiffDialog}
         onOpenChange={setShowDiffDialog}
-        currentResult={result}
-        comparisonResult={comparisonResult}
-        currentVersionId={currentVersionId || 'current'}
-        comparisonVersionId={comparisonVersionId}
+        primaryResult={isComparisonColumn ? comparisonResult : result}
+        comparisonResult={isComparisonColumn ? result : comparisonResult}
+        primaryVersionId={isComparisonColumn ? (comparisonVersionId || 'comparison') : (currentVersionId || 'current')}
+        comparisonVersionId={isComparisonColumn ? currentVersionId : comparisonVersionId}
         testCaseIndex={testCaseIndex}
       />
     </>
