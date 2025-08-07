@@ -8,6 +8,7 @@ import {
   createTestSet,
   createTestResult,
   addTestCase as addTestCaseToTestSet,
+  duplicateTestCase as duplicateTestCaseInTestSet,
   updateTestCase as updateTestCaseInTestSet,
   deleteTestCase as deleteTestCaseFromTestSet,
   updateTestResult,
@@ -48,6 +49,7 @@ interface TestSetContextType {
   
   // Test case management
   addTestCase: (testSetUid: string) => void;
+  duplicateTestCase: (testSetUid: string, caseId: string) => void;
   updateTestCase: (testSetUid: string, caseId: string, variableValues: Record<string, string>) => void;
   deleteTestCase: (testSetUid: string, caseId: string) => void;
   bulkDeleteTestCases: (testSetUid: string, caseIds: string[]) => void;
@@ -175,6 +177,16 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     const updatedTestSet = addTestCaseToTestSet(testSet);
+    updateTestSet(updatedTestSet);
+  };
+
+  const duplicateTestCase = (testSetUid: string, caseId: string) => {
+    const testSet = testSets.find(ts => ts.uid === testSetUid);
+    if (!testSet) {
+      throw new Error('Test set not found');
+    }
+
+    const updatedTestSet = duplicateTestCaseInTestSet(testSet, caseId);
     updateTestSet(updatedTestSet);
   };
 
@@ -735,6 +747,7 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
     deleteTestSet,
     getTestSetsByProject: getTestSetsByProjectFn,
     addTestCase,
+    duplicateTestCase,
     updateTestCase,
     deleteTestCase,
     bulkDeleteTestCases,

@@ -369,6 +369,37 @@ export const addTestCase = (testSet: TestSet): TestSet => {
 };
 
 /**
+ * Duplicates an existing test case in a test set
+ * @param testSet - Test set containing the test case to duplicate
+ * @param testCaseId - ID of the test case to duplicate
+ * @returns Updated test set with duplicated test case
+ */
+export const duplicateTestCase = (testSet: TestSet, testCaseId: string): TestSet => {
+  validateTestSet(testSet);
+  
+  if (!testCaseId || typeof testCaseId !== 'string') {
+    throw new Error('Test case ID is required and must be a string');
+  }
+
+  const originalTestCase = testSet.testCases.find(tc => tc.id === testCaseId);
+  if (!originalTestCase) {
+    throw new Error('Test case not found');
+  }
+
+  const duplicatedTestCase: TestCase = {
+    id: generateUid(),
+    variableValues: { ...originalTestCase.variableValues },
+    results: {}
+  };
+  
+  return {
+    ...testSet,
+    testCases: [...testSet.testCases, duplicatedTestCase],
+    updatedAt: new Date().toISOString()
+  };
+};
+
+/**
  * Updates a test case's variable values
  * @param testSet - Test set containing the test case
  * @param testCaseId - ID of the test case to update

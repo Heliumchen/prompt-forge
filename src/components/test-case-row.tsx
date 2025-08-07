@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ResultCell } from "./result-cell";
 import { ComparisonColumn } from "./comparison-controls";
-import { Trash2 } from "lucide-react";
+import { Trash2, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TestCaseRowProps {
@@ -21,6 +21,7 @@ interface TestCaseRowProps {
   onSelectionChange?: (selected: boolean) => void;
   onUpdateVariables: (variableValues: Record<string, string>) => void;
   onDelete: () => void;
+  onDuplicate: () => void;
   onRunTest: (versionIdentifier?: string) => Promise<void>;
   className?: string;
 }
@@ -36,6 +37,7 @@ export function TestCaseRow({
   onSelectionChange,
   onUpdateVariables,
   onDelete,
+  onDuplicate,
   onRunTest,
   className,
 }: TestCaseRowProps) {
@@ -137,15 +139,26 @@ export function TestCaseRow({
 
       {/* Actions cell */}
       <td className="px-4 py-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onDelete}
-          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-          aria-label={`Delete test case ${rowIndex + 1}`}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onDuplicate}
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            aria-label={`Duplicate test case ${rowIndex + 1}`}
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onDelete}
+            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            aria-label={`Delete test case ${rowIndex + 1}`}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       </td>
     </tr>
   );

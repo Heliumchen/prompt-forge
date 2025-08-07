@@ -61,6 +61,7 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
     currentTestSet, 
     updateTestCase, 
     deleteTestCase,
+    duplicateTestCase,
     bulkDeleteTestCases,
     runSingleTest,
     runAllTests: _runAllTests,
@@ -152,6 +153,22 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
       setError(errorMessage);
     }
   }, [currentTestSet, deleteTestCase]);
+
+  // Handle duplicating test case with loading state
+  const handleDuplicateTestCase = useCallback(async (caseId: string) => {
+    if (!currentTestSet) return;
+    
+    try {
+      // Don't show global loading for quick operations like duplicating a test case
+      duplicateTestCase(currentTestSet.uid, caseId);
+      toast.success("Test case duplicated");
+    } catch (error) {
+      console.error("Failed to duplicate test case:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to duplicate test case";
+      toast.error(errorMessage);
+      setError(errorMessage);
+    }
+  }, [currentTestSet, duplicateTestCase]);
 
   // Handle bulk deleting test cases with loading state
   const handleBulkDeleteTestCases = useCallback(async (caseIds: string[]) => {
@@ -304,6 +321,7 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
             versionIdentifier={versionIdentifier}
             onUpdateTestCase={handleUpdateTestCase}
             onDeleteTestCase={handleDeleteTestCase}
+            onDuplicateTestCase={handleDuplicateTestCase}
             onBulkDeleteTestCases={handleBulkDeleteTestCases}
             onRunSingleTest={handleRunSingleTest}
           />

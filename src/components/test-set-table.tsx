@@ -35,6 +35,7 @@ interface TestSetTableProps {
   comparisonColumns?: ComparisonColumn[];
   onUpdateTestCase: (caseId: string, variableValues: Record<string, string>) => void;
   onDeleteTestCase: (caseId: string) => void;
+  onDuplicateTestCase: (caseId: string) => void;
   onBulkDeleteTestCases?: (caseIds: string[]) => void;
   onRunSingleTest: (caseId: string, versionIdentifier?: string) => Promise<void>;
   className?: string;
@@ -47,6 +48,7 @@ export function TestSetTable({
   comparisonColumns: _comparisonColumns = [],
   onUpdateTestCase,
   onDeleteTestCase,
+  onDuplicateTestCase,
   onBulkDeleteTestCases,
   onRunSingleTest,
   className,
@@ -248,6 +250,7 @@ export function TestSetTable({
                   onUpdateTestCase(testCase.id, variableValues)
                 }
                 onDelete={() => onDeleteTestCase(testCase.id)}
+                onDuplicate={() => onDuplicateTestCase(testCase.id)}
                 onRunTest={(versionId) => onRunSingleTest(testCase.id, versionId)}
               />
             ))}
