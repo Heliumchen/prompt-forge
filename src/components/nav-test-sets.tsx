@@ -103,6 +103,18 @@ export function NavTestSets() {
     }
   };
 
+  const handleProjectSelection = (projectUid: string) => {
+    setSelectedProjectUid(projectUid);
+    
+    // Auto-populate test set name if it's currently empty
+    if (!newTestSetName.trim()) {
+      const selectedProject = projects.find(p => p.uid === projectUid);
+      if (selectedProject) {
+        setNewTestSetName(selectedProject.name);
+      }
+    }
+  };
+
   const handleAddTestSet = () => {
     if (newTestSetName.trim() && selectedProjectUid) {
       addTestSet(newTestSetName.trim(), selectedProjectUid);
@@ -126,29 +138,31 @@ export function NavTestSets() {
   // Handle export JSON
   const handleExportJSON = (testSet: TestSet) => {
     try {
-      const associatedProject = projects.find(p => p.uid === testSet.associatedProjectUid);
+      const associatedProject = projects.find(
+        (p) => p.uid === testSet.associatedProjectUid,
+      );
 
       const exportData = {
         testSetName: testSet.name,
-        projectName: associatedProject?.name || 'Unknown Project',
+        projectName: associatedProject?.name || "Unknown Project",
         exportedAt: new Date().toISOString(),
         variableNames: testSet.variableNames,
         testCases: testSet.testCases.map((testCase, index) => ({
           testCaseIndex: index + 1,
           testCaseId: testCase.id,
           variableValues: testCase.variableValues,
-          results: testCase.results
-        }))
+          results: testCase.results,
+        })),
       };
 
       // Create and download JSON file
       const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-        type: 'application/json'
+        type: "application/json",
       });
       const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.download = `${testSet.name.replace(/[<>:"/\\|?*]/g, '_')}_testset.json`;
+      link.download = `${testSet.name.replace(/[<>:"/\\|?*]/g, "_")}_testset.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -166,31 +180,35 @@ export function NavTestSets() {
     try {
       // Create CSV headers
       const headers = [
-        'Test Case #',
+        "Test Case #",
         ...testSet.variableNames,
-        'Results (JSON)'
+        "Results (JSON)",
       ];
 
       // Create CSV rows
       const rows = testSet.testCases.map((testCase, index) => {
         return [
           index + 1,
-          ...testSet.variableNames.map(name =>
-            `"${(testCase.variableValues[name] || '').replace(/"/g, '""')}"`
+          ...testSet.variableNames.map(
+            (name) =>
+              `"${(testCase.variableValues[name] || "").replace(/"/g, '""')}"`,
           ),
-          `"${JSON.stringify(testCase.results).replace(/"/g, '""')}"`
+          `"${JSON.stringify(testCase.results).replace(/"/g, '""')}"`,
         ];
       });
 
       // Combine headers and rows
-      const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+      const csvContent = [
+        headers.join(","),
+        ...rows.map((row) => row.join(",")),
+      ].join("\n");
 
       // Create and download CSV file
-      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const blob = new Blob([csvContent], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.download = `${testSet.name.replace(/[<>:"/\\|?*]/g, '_')}_testset.csv`;
+      link.download = `${testSet.name.replace(/[<>:"/\\|?*]/g, "_")}_testset.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -252,21 +270,15 @@ export function NavTestSets() {
                       <span>Rename</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => handleExportJSON(testSet)}
-                    >
+                    <DropdownMenuItem onClick={() => handleExportJSON(testSet)}>
                       <Download className="text-muted-foreground" />
                       <span>Export JSON</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleExportCSV(testSet)}
-                    >
+                    <DropdownMenuItem onClick={() => handleExportCSV(testSet)}>
                       <FileText className="text-muted-foreground" />
                       <span>Export CSV</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleImportCSV(testSet)}
-                    >
+                    <DropdownMenuItem onClick={() => handleImportCSV(testSet)}>
                       <Upload className="text-muted-foreground" />
                       <span>Import CSV</span>
                     </DropdownMenuItem>
@@ -304,17 +316,11 @@ export function NavTestSets() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="name">Test Set Name</Label>
-              <Input
-                id="name"
-                value={newTestSetName}
-                onChange={(e) => setNewTestSetName(e.target.value)}
-                placeholder="Enter test set name"
-              />
-            </div>
-            <div className="grid gap-2">
               <Label htmlFor="project">Associated Project</Label>
-              <Select value={selectedProjectUid} onValueChange={setSelectedProjectUid}>
+              <Select
+                value={selectedProjectUid}
+                onValueChange={handleProjectSelection}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a project" />
                 </SelectTrigger>
@@ -326,6 +332,15 @@ export function NavTestSets() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="name">Test Set Name</Label>
+              <Input
+                id="name"
+                value={newTestSetName}
+                onChange={(e) => setNewTestSetName(e.target.value)}
+                placeholder="Enter test set name"
+              />
             </div>
           </div>
           <DialogFooter>
