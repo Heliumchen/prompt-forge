@@ -91,6 +91,37 @@ export function TestCaseRow({
         </td>
       )}
 
+      {/* Primary result cell */}
+      <td className="px-4 py-3">
+        <ResultCell
+          result={result}
+          onRunTest={() => onRunTest(versionIdentifier)}
+          testCaseIndex={rowIndex}
+          comparisonResult={comparisonColumns.length > 0 && comparisonColumns[0] ? 
+            testCase.results[comparisonColumns[0].versionIdentifier] : undefined
+          }
+          currentVersionId={versionIdentifier}
+          comparisonVersionId={comparisonColumns.length > 0 && comparisonColumns[0] ? 
+            comparisonColumns[0].versionIdentifier : undefined
+          }
+        />
+      </td>
+
+      {/* Compare selector cell - always visible to match header, shows comparison result when active */}
+      <td className="px-4 py-3 border-l border-border">
+        {comparisonColumns.length > 0 && comparisonColumns[0] ? (
+          <ResultCell
+            result={testCase.results[comparisonColumns[0].versionIdentifier]}
+            onRunTest={() => onRunTest(comparisonColumns[0].versionIdentifier)}
+            testCaseIndex={rowIndex}
+            comparisonResult={result}
+            currentVersionId={comparisonColumns[0].versionIdentifier}
+            comparisonVersionId={versionIdentifier}
+            isComparisonColumn={true}
+          />
+        ) : null}
+      </td>
+
       {/* Variable value cells */}
       {variableNames.map((variableName) => (
         <td key={variableName} className="px-4 py-3">
@@ -108,26 +139,6 @@ export function TestCaseRow({
           />
         </td>
       ))}
-
-      {/* Primary result cell */}
-      <td className="px-4 py-3">
-        <ResultCell
-          result={result}
-          onRunTest={() => onRunTest(versionIdentifier)}
-          testCaseIndex={rowIndex}
-        />
-      </td>
-
-      {/* Compare selector cell - always visible to match header, shows comparison result when active */}
-      <td className="px-4 py-3 border-l border-border">
-        {comparisonColumns.length > 0 && comparisonColumns[0] ? (
-          <ResultCell
-            result={testCase.results[comparisonColumns[0].versionIdentifier]}
-            onRunTest={() => onRunTest(comparisonColumns[0].versionIdentifier)}
-            testCaseIndex={rowIndex}
-          />
-        ) : null}
-      </td>
 
       {/* Actions cell */}
       <td className="px-4 py-3">

@@ -3,14 +3,19 @@
 import React, { useState } from "react";
 import { TestResult } from "@/lib/testSetStorage";
 import { Button } from "@/components/ui/button";
-import { Play, RotateCcw, AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { Play, RotateCcw, AlertCircle, CheckCircle, Clock, GitCompare } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ResultDiffDialog } from "./result-diff-dialog";
 
 interface ResultCellProps {
   result?: TestResult;
   onRunTest: () => Promise<void>;
   testCaseIndex: number;
   className?: string;
+  comparisonResult?: TestResult;
+  currentVersionId?: string;
+  comparisonVersionId?: string;
+  isComparisonColumn?: boolean;
 }
 
 export function ResultCell({
@@ -18,8 +23,13 @@ export function ResultCell({
   onRunTest,
   testCaseIndex,
   className,
+  comparisonResult,
+  currentVersionId,
+  comparisonVersionId,
+  isComparisonColumn = false,
 }: ResultCellProps) {
   const [isRunning, setIsRunning] = useState(false);
+  const [showDiffDialog, setShowDiffDialog] = useState(false);
 
   const handleRunTest = async () => {
     if (isRunning) return;
@@ -110,17 +120,42 @@ export function ResultCell({
           </div>
         )}
         
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleRunTest}
-          disabled={isRunning}
-          className="flex items-center gap-1 text-xs"
-          aria-label={`Re-run test case ${testCaseIndex + 1}`}
-        >
-          <RotateCcw className="h-3 w-3" />
-          Re-run
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRunTest}
+            disabled={isRunning}
+            className="flex items-center gap-1 text-xs"
+            aria-label={`Re-run test case ${testCaseIndex + 1}`}
+          >
+            <RotateCcw className="h-3 w-3" />
+            Re-run
+          </Button>
+          
+          {currentVersionId && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDiffDialog(true)}
+              className="flex items-center gap-1 text-xs"
+              aria-label={`Compare results for test case ${testCaseIndex + 1}`}
+            >
+              <GitCompare className="h-3 w-3" />
+              Diff
+            </Button>
+          )}
+        </div>
+        
+        <ResultDiffDialog
+          open={showDiffDialog}
+          onOpenChange={setShowDiffDialog}
+          primaryResult={isComparisonColumn ? comparisonResult : result}
+          comparisonResult={isComparisonColumn ? result : comparisonResult}
+          primaryVersionId={isComparisonColumn ? (comparisonVersionId || 'comparison') : (currentVersionId || 'current')}
+          comparisonVersionId={isComparisonColumn ? currentVersionId : comparisonVersionId}
+          testCaseIndex={testCaseIndex}
+        />
       </div>
     );
   }
@@ -154,15 +189,50 @@ export function ResultCell({
             <RotateCcw className="h-3 w-3" />
             Retry
           </Button>
+          
+          {currentVersionId && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDiffDialog(true)}
+              className="flex items-center gap-1 text-xs"
+              aria-label={`Compare results for test case ${testCaseIndex + 1}`}
+            >
+              <GitCompare className="h-3 w-3" />
+              Diff
+            </Button>
+          )}
         </div>
+        
+        <ResultDiffDialog
+          open={showDiffDialog}
+          onOpenChange={setShowDiffDialog}
+          primaryResult={isComparisonColumn ? comparisonResult : result}
+          comparisonResult={isComparisonColumn ? result : comparisonResult}
+          primaryVersionId={isComparisonColumn ? (comparisonVersionId || 'comparison') : (currentVersionId || 'current')}
+          comparisonVersionId={isComparisonColumn ? currentVersionId : comparisonVersionId}
+          testCaseIndex={testCaseIndex}
+        />
       </div>
     );
   }
 
   // Fallback - should not reach here
   return (
-    <div className={cn("text-muted-foreground text-sm", className)}>
-      Unknown status
-    </div>
+    <>
+      <div className={cn("text-muted-foreground text-sm", className)}>
+        Unknown status
+      </div>
+      
+      <ResultDiffDialog
+        open={showDiffDialog}
+        onOpenChange={setShowDiffDialog}
+        currentResult={result}
+        comparisonResult={comparisonResult}
+        currentVersionId={currentVersionId || 'current'}
+        comparisonVersionId={comparisonVersionId}
+        testCaseIndex={testCaseIndex}
+      />
+    </>
   );
 }

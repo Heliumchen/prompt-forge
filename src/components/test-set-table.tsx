@@ -178,16 +178,6 @@ export function TestSetTable({
                 </th>
               )}
 
-              {/* Variable columns */}
-              {testSet.variableNames.map((variableName) => (
-                <th
-                  key={variableName}
-                  className="px-4 py-3 text-left text-sm font-medium text-foreground"
-                >
-                  {variableName}
-                </th>
-              ))}
-              
               {/* Primary result column */}
               <th className="px-4 py-3 text-left text-sm font-medium text-foreground min-w-[200px]">
                 Result {versionIdentifier && `(${versionIdentifier})`}
@@ -220,6 +210,16 @@ export function TestSetTable({
                   </Select>
                 </div>
               </th>
+
+              {/* Variable columns */}
+              {testSet.variableNames.map((variableName) => (
+                <th
+                  key={variableName}
+                  className="px-4 py-3 text-left text-sm font-medium text-foreground"
+                >
+                  {variableName}
+                </th>
+              ))}
               
               {/* Actions column */}
               <th className="px-4 py-3 text-left text-sm font-medium text-foreground w-[60px]">
