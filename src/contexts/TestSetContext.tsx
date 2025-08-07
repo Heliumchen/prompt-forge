@@ -62,6 +62,7 @@ interface TestSetContextType {
   // Test execution
   runSingleTest: (testSetUid: string, caseId: string, targetVersion: number, versionIdentifier?: string) => Promise<void>;
   runAllTests: (testSetUid: string, targetVersion: number, versionIdentifier?: string) => Promise<void>;
+  runAllTestsForced: (testSetUid: string, targetVersion: number, versionIdentifier?: string) => Promise<void>;
   cancelBatchExecution: (testSetUid: string) => void;
   isBatchRunning: (testSetUid: string) => boolean;
   
@@ -546,6 +547,38 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
       testCase.results[identifier].status === 'error'
     );
 
+    return runTestsInternal(testSetUid, targetVersion, testCasesToRun, versionIdentifier);
+  };
+
+  const runAllTestsForced = async (
+    testSetUid: string, 
+    targetVersion: number,
+    versionIdentifier?: string
+  ): Promise<void> => {
+    const testSet = testSets.find(ts => ts.uid === testSetUid);
+    if (!testSet) {
+      throw new Error('Test set not found');
+    }
+
+    // Run all test cases regardless of their current status
+    const testCasesToRun = testSet.testCases;
+
+    return runTestsInternal(testSetUid, targetVersion, testCasesToRun, versionIdentifier);
+  };
+
+  const runTestsInternal = async (
+    testSetUid: string, 
+    targetVersion: number,
+    testCasesToRun: TestCase[],
+    versionIdentifier?: string
+  ): Promise<void> => {
+    const testSet = testSets.find(ts => ts.uid === testSetUid);
+    if (!testSet) {
+      throw new Error('Test set not found');
+    }
+
+    const identifier = versionIdentifier || `v${targetVersion}`;
+
     if (testCasesToRun.length === 0) {
       console.log('No tests to run - all test cases already have results');
       return; // No tests to run
@@ -687,13 +720,34 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
     versionIdentifier: string, 
     result: TestResult
   ) => {
-    const testSet = testSets.find(ts => ts.uid === testSetUid);
-    if (!testSet) {
-      throw new Error('Test set not found');
-    }
+    // Use functional update to avoid race conditions during batch execution
+    setTestSets(prevTestSets => {
+      const testSetIndex = prevTestSets.findIndex(ts => ts.uid === testSetUid);
+      if (testSetIndex === -1) {
+        throw new Error('Test set not found');
+      }
 
-    const updatedTestSet = updateTestResult(testSet, caseId, versionIdentifier, result);
-    updateTestSet(updatedTestSet);
+      const testSet = prevTestSets[testSetIndex];
+      const updatedTestSet = updateTestResult(testSet, caseId, versionIdentifier, result);
+      
+      // Save to localStorage
+      saveTestSetToStorage(updatedTestSet);
+      
+      // Update the test sets array
+      const newTestSets = [...prevTestSets];
+      newTestSets[testSetIndex] = updatedTestSet;
+      
+      return newTestSets;
+    });
+    
+    // Update currentTestSet if it matches the updated test set
+    setCurrentTestSet(prevCurrentTestSet => {
+      if (prevCurrentTestSet && prevCurrentTestSet.uid === testSetUid) {
+        const updatedTestSet = updateTestResult(prevCurrentTestSet, caseId, versionIdentifier, result);
+        return updatedTestSet;
+      }
+      return prevCurrentTestSet;
+    });
   };
 
 
@@ -756,6 +810,7 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
     validateSynchronizationOperation: validateSynchronizationOperationFn,
     runSingleTest,
     runAllTests,
+    runAllTestsForced,
     cancelBatchExecution,
     isBatchRunning,
     updateTestResult: updateTestResultFn,

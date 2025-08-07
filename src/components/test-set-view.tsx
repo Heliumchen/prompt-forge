@@ -294,14 +294,12 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
   return (
     <TestSetErrorBoundary onError={handleError}>
       <div className="flex flex-col h-full relative">
-        {/* Loading overlay - only show for batch operations */}
-        {(isLoading || batchRunning) && (
+        {/* Loading overlay - only show for non-batch operations like bulk delete */}
+        {isLoading && !batchRunning && (
           <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-50 flex items-center justify-center">
             <div className="flex items-center gap-2 bg-background border rounded-lg px-4 py-2 shadow-lg">
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-sm">
-                {batchRunning ? "Running batch tests..." : "Processing batch operation..."}
-              </span>
+              <span className="text-sm">Processing operation...</span>
             </div>
           </div>
         )}

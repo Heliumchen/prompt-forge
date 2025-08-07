@@ -37,6 +37,7 @@ export function TestSetControls({
   const {
     currentTestSet,
     runAllTests,
+    runAllTestsForced,
     cancelBatchExecution,
     isBatchRunning,
     addTestCase,
@@ -64,6 +65,21 @@ export function TestSetControls({
     onVersionChange?.(version);
   };
 
+  // Check if all test cases have results for the selected version
+  const hasAllTestsRun = () => {
+    if (!currentTestSet || !currentTestSet.testCases.length) return false;
+    
+    const targetVersion = externalSelectedVersion || selectedVersion;
+    if (!targetVersion) return false;
+    
+    const versionIdentifier = `v${targetVersion}`;
+    return currentTestSet.testCases.every(testCase => 
+      testCase.results[versionIdentifier] && 
+      (testCase.results[versionIdentifier].status === 'completed' || 
+       testCase.results[versionIdentifier].status === 'error')
+    );
+  };
+
   // Handle run all tests
   const handleRunAllTests = async () => {
     const targetVersion = externalSelectedVersion || selectedVersion;
@@ -83,10 +99,19 @@ export function TestSetControls({
       return;
     }
 
+    const allTestsRun = hasAllTestsRun();
+    
     setIsRunning(true);
     try {
-      await runAllTests(currentTestSet.uid, targetVersion);
-      toast.success("All tests completed");
+      if (allTestsRun) {
+        // All tests have been run before, re-run all
+        await runAllTestsForced(currentTestSet.uid, targetVersion);
+        toast.success("All tests re-run completed");
+      } else {
+        // Some tests haven't been run, run only unrun tests
+        await runAllTests(currentTestSet.uid, targetVersion);
+        toast.success("All tests completed");
+      }
     } catch (error) {
       console.error("Batch execution failed:", error);
       toast.error(error instanceof Error ? error.message : "Failed to run tests");
@@ -179,7 +204,7 @@ export function TestSetControls({
                 disabled={!(externalSelectedVersion || selectedVersion) || currentTestSet.testCases.length === 0}
               >
                 <Play className="h-4 w-4" />
-                Run All
+                {hasAllTestsRun() ? 'Re-run All' : 'Run All'}
               </Button>
             )}
           </TooltipTrigger>
@@ -187,7 +212,9 @@ export function TestSetControls({
             <p>
               {batchRunning || isRunning
                 ? "Cancel batch execution"
-                : "Run all test cases for selected version"
+                : hasAllTestsRun() 
+                  ? "Re-run all test cases for selected version" 
+                  : "Run all test cases for selected version"
               }
             </p>
           </TooltipContent>
