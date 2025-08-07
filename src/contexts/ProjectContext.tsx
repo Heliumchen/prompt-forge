@@ -75,6 +75,10 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     if (projects.length > 0) {
       saveProjects(projects);
+      // 触发数据变更事件用于自动备份
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('promptforge:datachange'));
+      }, 100);
     }
   }, [projects]);
 

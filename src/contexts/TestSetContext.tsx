@@ -121,6 +121,11 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
         setCurrentTestSet(null);
       }
     }
+    
+    // 触发数据变更事件用于自动备份
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('promptforge:datachange'));
+    }, 100);
   };
 
   // Test set CRUD operations

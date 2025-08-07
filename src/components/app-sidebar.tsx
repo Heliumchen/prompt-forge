@@ -9,6 +9,7 @@ import {
 import { NavProjects } from "@/components/nav-projects"
 import { NavTestSets } from "@/components/nav-test-sets"
 import { NavAPIKeysSettings } from "@/components/nav-api-keys-settings"
+import { NavBackupSettings } from "@/components/nav-backup-settings"
 import {
   Sidebar,
   SidebarContent,
@@ -55,6 +56,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <NavAPIKeysSettings />
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <NavBackupSettings />
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild size="sm">

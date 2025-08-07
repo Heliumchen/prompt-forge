@@ -4,6 +4,7 @@ import "./globals.css";
 import { ProjectProvider } from "@/contexts/ProjectContext";
 import { TestSetProvider } from "@/contexts/TestSetContext";
 import { ThemeProvider } from "@/components/theme-provider";
+import { BackupProvider } from "@/components/backup-provider";
 import { Toaster } from "@/components/ui/sonner"
 
 const geistSans = Geist({
@@ -33,14 +34,16 @@ export default function RootLayout({
       >
         <ProjectProvider>
           <TestSetProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange
-            >
-              {children}
-            </ThemeProvider>
+            <BackupProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+              >
+                {children}
+              </ThemeProvider>
+            </BackupProvider>
           </TestSetProvider>
         </ProjectProvider>
         <Toaster richColors />

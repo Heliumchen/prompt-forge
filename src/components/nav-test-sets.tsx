@@ -105,10 +105,10 @@ export function NavTestSets() {
 
   const handleProjectSelection = (projectUid: string) => {
     setSelectedProjectUid(projectUid);
-    
+
     // Auto-populate test set name if it's currently empty
     if (!newTestSetName.trim()) {
-      const selectedProject = projects.find(p => p.uid === projectUid);
+      const selectedProject = projects.find((p) => p.uid === projectUid);
       if (selectedProject) {
         setNewTestSetName(selectedProject.name);
       }
@@ -271,7 +271,7 @@ export function NavTestSets() {
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => handleExportJSON(testSet)}>
-                      <Download className="text-muted-foreground" />
+                      <Upload className="text-muted-foreground" />
                       <span>Export JSON</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleExportCSV(testSet)}>
@@ -279,7 +279,7 @@ export function NavTestSets() {
                       <span>Export CSV</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleImportCSV(testSet)}>
-                      <Upload className="text-muted-foreground" />
+                      <Download className="text-muted-foreground" />
                       <span>Import CSV</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
