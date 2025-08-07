@@ -193,13 +193,6 @@ export function TestSetTable({
                 Result {versionIdentifier && `(${versionIdentifier})`}
               </th>
 
-              {/* Dynamic comparison result column - only show when comparison is active */}
-              {comparisonVersion && (
-                <th className="px-4 py-3 text-left text-sm font-medium text-foreground min-w-[200px] border-l border-border">
-                  Compare (v{comparisonVersion})
-                </th>
-              )}
-
               {/* Compare selector column - always visible */}
               <th className="px-4 py-3 text-left text-sm font-medium text-foreground min-w-[150px] border-l border-border">
                 <div className="flex items-center gap-2">

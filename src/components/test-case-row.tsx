@@ -118,23 +118,15 @@ export function TestCaseRow({
         />
       </td>
 
-      {/* Comparison result cells - only show when comparison is active */}
-      {comparisonColumns.map((column) => {
-        const comparisonResult = testCase.results[column.versionIdentifier];
-        return (
-          <td key={column.id} className="px-4 py-3 border-l border-border">
-            <ResultCell
-              result={comparisonResult}
-              onRunTest={() => onRunTest(column.versionIdentifier)}
-              testCaseIndex={rowIndex}
-            />
-          </td>
-        );
-      })}
-
-      {/* Compare selector cell - always visible to match header */}
+      {/* Compare selector cell - always visible to match header, shows comparison result when active */}
       <td className="px-4 py-3 border-l border-border">
-        {/* Empty cell to maintain column alignment */}
+        {comparisonColumns.length > 0 && comparisonColumns[0] ? (
+          <ResultCell
+            result={testCase.results[comparisonColumns[0].versionIdentifier]}
+            onRunTest={() => onRunTest(comparisonColumns[0].versionIdentifier)}
+            testCaseIndex={rowIndex}
+          />
+        ) : null}
       </td>
 
       {/* Actions cell */}
