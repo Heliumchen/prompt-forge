@@ -129,6 +129,7 @@ button {
 /* 自定义滚动条样式 */
 .custom-scrollbar::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -150,6 +151,19 @@ button {
   background: rgba(107, 114, 128, 0.8);
 }
 
+/* 横向滚动条样式 - 更细更透明 */
+.custom-scrollbar::-webkit-scrollbar:horizontal {
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:horizontal {
+  background: rgba(156, 163, 175, 0.2);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:horizontal:hover {
+  background: rgba(156, 163, 175, 0.4);
+}
+
 /* 暗色主题下的滚动条样式 */
 .dark .custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(75, 85, 99, 0.5);
@@ -161,6 +175,14 @@ button {
 
 .dark .custom-scrollbar::-webkit-scrollbar-thumb:active {
   background: rgba(55, 65, 81, 0.9);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:horizontal {
+  background: rgba(75, 85, 99, 0.3);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:horizontal:hover {
+  background: rgba(75, 85, 99, 0.6);
 }
 
 /* Firefox 滚动条样式 */

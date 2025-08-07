@@ -145,7 +145,7 @@ export function TestSetTable({
 
   return (
     <>
-      <div className={cn("w-full overflow-auto", className)}>
+      <div className={cn("w-full", className)}>
         {/* Bulk actions toolbar */}
         {selectedTestCases.size > 0 && (
           <div className="flex items-center gap-2 p-2 bg-muted/50 border-b">
