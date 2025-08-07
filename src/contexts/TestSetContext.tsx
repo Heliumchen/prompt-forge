@@ -462,8 +462,8 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
       
       const response = await llmClient.chat(messages, {
         model: modelConfig.model,
-        temperature: modelConfig.temperature,
-        max_tokens: modelConfig.max_tokens,
+        temperature: modelConfig.temperature || 1.0,
+        max_tokens: modelConfig.max_tokens || 1024,
         top_p: modelConfig.top_p,
         frequency_penalty: modelConfig.frequency_penalty,
         presence_penalty: modelConfig.presence_penalty,

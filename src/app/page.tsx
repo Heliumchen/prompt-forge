@@ -347,6 +347,9 @@ export default function Page() {
         stream: true,
         temperature: currentVersion.data.modelConfig?.temperature || 1.0,
         max_tokens: currentVersion.data.modelConfig?.max_tokens || 1024,
+        top_p: currentVersion.data.modelConfig?.top_p,
+        frequency_penalty: currentVersion.data.modelConfig?.frequency_penalty,
+        presence_penalty: currentVersion.data.modelConfig?.presence_penalty,
       };
 
       const stream = await client.chat(messages, options);
