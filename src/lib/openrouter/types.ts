@@ -92,6 +92,7 @@ export interface StreamChunk {
     delta: {
       role?: string;
       content?: string;
+      reasoning?: string;
       tool_calls?: unknown[];
     };
     finish_reason: string | null;

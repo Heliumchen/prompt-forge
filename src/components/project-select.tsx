@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { Check, ChevronsUpDown } from "lucide-react"
+import * as React from "react";
+import { Check, ChevronsUpDown } from "lucide-react";
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   Command,
   CommandEmpty,
@@ -12,13 +12,13 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/components/ui/command"
+} from "@/components/ui/command";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"
-import { useProjects } from "@/contexts/ProjectContext"
+} from "@/components/ui/popover";
+import { useProjects } from "@/contexts/ProjectContext";
 
 interface ProjectSelectProps {
   value?: string;
@@ -26,22 +26,24 @@ interface ProjectSelectProps {
 }
 
 export function ProjectSelect({ value = "", onChange }: ProjectSelectProps) {
-  const [open, setOpen] = React.useState(false)
-  const [selectedProjectUid, setSelectedProjectUid] = React.useState("")
-  const { projects } = useProjects()
+  const [open, setOpen] = React.useState(false);
+  const [selectedProjectUid, setSelectedProjectUid] = React.useState("");
+  const { projects } = useProjects();
 
   // 初始化时从value中获取项目uid
   React.useEffect(() => {
     if (value) {
-      setSelectedProjectUid(value)
+      setSelectedProjectUid(value);
     }
-  }, [value])
+  }, [value]);
 
   // 查找当前选中项目的名称
   const getSelectedProjectName = () => {
-    const project = projects.find(project => project.uid === selectedProjectUid)
-    return project ? project.name : "Select Project..."
-  }
+    const project = projects.find(
+      (project) => project.uid === selectedProjectUid,
+    );
+    return project ? project.name : "Select Project...";
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -50,13 +52,13 @@ export function ProjectSelect({ value = "", onChange }: ProjectSelectProps) {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[300px] justify-between"
+          className="w-[250px] justify-between"
         >
           {selectedProjectUid ? getSelectedProjectName() : "Select Project..."}
           <ChevronsUpDown className="opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0">
+      <PopoverContent className="w-[250px] p-0">
         <Command>
           <CommandInput placeholder="Search project..." />
           <CommandList>
@@ -67,17 +69,20 @@ export function ProjectSelect({ value = "", onChange }: ProjectSelectProps) {
                   key={project.uid}
                   value={project.uid}
                   onSelect={(currentValue: string) => {
-                    const newValue = currentValue === selectedProjectUid ? "" : currentValue
-                    setSelectedProjectUid(newValue)
-                    setOpen(false)
-                    onChange?.(newValue)
+                    const newValue =
+                      currentValue === selectedProjectUid ? "" : currentValue;
+                    setSelectedProjectUid(newValue);
+                    setOpen(false);
+                    onChange?.(newValue);
                   }}
                 >
                   {project.name}
                   <Check
                     className={cn(
                       "ml-auto",
-                      selectedProjectUid === project.uid ? "opacity-100" : "opacity-0"
+                      selectedProjectUid === project.uid
+                        ? "opacity-100"
+                        : "opacity-0",
                     )}
                   />
                 </CommandItem>
@@ -87,5 +92,5 @@ export function ProjectSelect({ value = "", onChange }: ProjectSelectProps) {
         </Command>
       </PopoverContent>
     </Popover>
-  )
+  );
 }
