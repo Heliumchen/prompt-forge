@@ -169,7 +169,7 @@ export function GenerationsSection({
         </Button>
         <Button
           className="flex-1"
-          onClick={onGenerate}
+          onClick={() => onGenerate()}
           disabled={isGenerating}
         >
           {isGenerating ? (
