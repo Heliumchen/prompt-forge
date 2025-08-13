@@ -146,22 +146,119 @@ export const saveProjects = (projects: Project[]): void => {
   }
 };
 
+// 数据验证和修复函数
+const validateAndFixProject = (project: unknown): Project | null => {
+  try {
+    // 基本字段验证
+    if (!project || typeof project !== 'object') return null;
+    const proj = project as Record<string, unknown>;
+    if (!proj.uid || typeof proj.uid !== 'string') return null;
+    if (!proj.name || typeof proj.name !== 'string') return null;
+
+    // 检查是否需要迁移旧格式
+    if (!('versions' in proj)) {
+      return migrateProject(proj as Omit<Project, 'versions'>);
+    }
+
+    if (!Array.isArray(proj.versions) || proj.versions.length === 0) return null;
+
+    // 修复版本数据
+    const fixedVersions = (proj.versions as unknown[]).map((version: unknown) => {
+      if (!version || typeof version !== 'object') return null;
+      
+      // 确保版本ID是数字
+      const ver = version as Record<string, unknown>;
+      const versionId = typeof ver.id === 'number' ? ver.id : parseInt(String(ver.id), 10);
+      if (isNaN(versionId)) return null;
+
+      // 修复prompts和messages中的ID，确保它们是数字
+      const versionData = (version as Record<string, unknown>).data as Record<string, unknown>;
+      const fixedPrompts = Array.isArray(versionData?.prompts) ? 
+        (versionData.prompts as unknown[]).map((prompt: unknown, index: number) => {
+          const p = prompt as Record<string, unknown>;
+          return {
+            id: typeof p.id === 'number' && !isNaN(p.id) ? p.id : index + 1,
+            role: (p.role as 'system' | 'user' | 'assistant') || 'user',
+            content: (p.content as string) || '',
+            image_urls: p.image_urls as string[] || undefined
+          };
+        }) : [];
+
+      const fixedMessages = Array.isArray(versionData?.messages) ? 
+        (versionData.messages as unknown[]).map((message: unknown, index: number) => {
+          const m = message as Record<string, unknown>;
+          return {
+            id: typeof m.id === 'number' && !isNaN(m.id) ? m.id : index + 1,
+            role: (m.role as 'system' | 'user' | 'assistant') || 'user',
+            content: (m.content as string) || '',
+            image_urls: m.image_urls as string[] || undefined
+          };
+        }) : [];
+
+      const fixedVariables = Array.isArray(versionData?.variables) ? versionData.variables as Variable[] : [];
+
+      return {
+        ...version,
+        id: versionId,
+        createdAt: ver.createdAt as string || new Date().toISOString(),
+        updatedAt: ver.updatedAt as string || new Date().toISOString(),
+        description: ver.description as string || '',
+        data: {
+          ...versionData,
+          prompts: fixedPrompts,
+          messages: fixedMessages,
+          variables: fixedVariables,
+          modelConfig: (versionData?.modelConfig as ModelConfig) || { provider: '', model: '' }
+        }
+      };
+    }).filter(v => v !== null) as Version[];
+
+    if (fixedVersions.length === 0) return null;
+
+    // 确保currentVersion是有效的版本ID
+    const currentVersion = typeof proj.currentVersion === 'number' ? 
+      proj.currentVersion : 
+      parseInt(String(proj.currentVersion), 10);
+    
+    const validCurrentVersion = fixedVersions.find(v => v.id === currentVersion) ? 
+      currentVersion : fixedVersions[0].id;
+
+    return {
+      uid: proj.uid as string,
+      name: proj.name as string,
+      icon: (proj.icon as string) || '📝',
+      currentVersion: validCurrentVersion,
+      versions: fixedVersions
+    };
+  } catch (error) {
+    console.warn('项目数据修复失败:', error);
+    return null;
+  }
+};
+
 // 获取所有项目
 export const getProjects = (): Project[] => {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     if (!data) return [];
     
-    const projects = JSON.parse(data);
-    return projects.map((project: unknown) => {
-      // 检查是否需要迁移
-      if (typeof project === 'object' && project !== null && !('versions' in project)) {
-        return migrateProject(project as Omit<Project, 'versions'>);
-      }
-      return project as Project;
-    });
+    const rawProjects = JSON.parse(data);
+    if (!Array.isArray(rawProjects)) return [];
+
+    // 验证和修复每个项目
+    const validatedProjects = rawProjects
+      .map(validateAndFixProject)
+      .filter(Boolean) as Project[];
+
+    // 如果有项目被修复或删除，保存修复后的数据
+    if (validatedProjects.length !== rawProjects.length) {
+      console.log(`数据验证完成：修复了 ${rawProjects.length - validatedProjects.length} 个损坏的项目`);
+      saveProjects(validatedProjects);
+    }
+
+    return validatedProjects;
   } catch (error) {
-    console.error('Error getting projects:', error);
+    console.error('加载项目失败:', error);
     return [];
   }
 };
