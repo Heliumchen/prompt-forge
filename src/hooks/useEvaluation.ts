@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { LLMClient } from "@/lib/openrouter";
 import { toast } from "sonner";
 import { Project, Prompt, Message } from "@/lib/storage";
+import { getSecureApiKey } from "@/lib/security";
 
 export function useEvaluation() {
   const [isEvaluating, setIsEvaluating] = useState(false);
@@ -31,15 +32,7 @@ export function useEvaluation() {
       return false;
     }
 
-    const apiKeysStr = localStorage.getItem("apiKeys");
-    if (!apiKeysStr) {
-      toast.error("请在设置中配置OpenRouter API密钥");
-      return false;
-    }
-
-    const apiKeys = JSON.parse(apiKeysStr);
-    const apiKey = apiKeys.OpenRouter;
-
+    const apiKey = getSecureApiKey("apiKeys", "OpenRouter");
     if (!apiKey) {
       toast.error("请在设置中配置OpenRouter API密钥");
       return false;

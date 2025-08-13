@@ -21,6 +21,7 @@ import {
 import { LLMClient } from "@/lib/openrouter";
 import { ModelGroup } from "@/lib/openrouter/types";
 import { toast } from "sonner";
+import { getSecureApiKey } from "@/lib/security";
 
 interface ModelSelectProps {
   value?: string;
@@ -37,16 +38,8 @@ export function ModelSelect({ value = "", onChange }: ModelSelectProps) {
   const loadModels = React.useCallback(async () => {
     setLoading(true);
     try {
-      // 从localStorage获取OpenRouter API密钥
-      const apiKeysStr = localStorage.getItem("apiKeys");
-      if (!apiKeysStr) {
-        toast.error("请先配置OpenRouter API密钥");
-        return;
-      }
-
-      const apiKeys = JSON.parse(apiKeysStr);
-      const openRouterKey = apiKeys.OpenRouter;
-
+      // 安全地获取OpenRouter API密钥
+      const openRouterKey = getSecureApiKey("apiKeys", "OpenRouter");
       if (!openRouterKey) {
         toast.error("请先配置OpenRouter API密钥");
         return;

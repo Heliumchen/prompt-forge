@@ -34,6 +34,7 @@ import {
 import { processTemplate } from "@/lib/variableUtils";
 import { LLMClient } from "@/lib/openrouter";
 import { ChatMessage } from "@/lib/openrouter/types";
+import { getSecureApiKey } from "@/lib/security";
 
 
 
@@ -447,14 +448,8 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
         throw new Error('No valid messages to send. Please check your prompts.');
       }
 
-      // Get API key from localStorage (following existing pattern)
-      const apiKeysStr = localStorage.getItem('apiKeys');
-      if (!apiKeysStr) {
-        throw new Error('OpenRouter API key not found. Please configure your API key in settings.');
-      }
-      
-      const apiKeys = JSON.parse(apiKeysStr);
-      const apiKey = apiKeys.OpenRouter;
+      // Get API key securely
+      const apiKey = getSecureApiKey('apiKeys', 'OpenRouter');
       if (!apiKey) {
         throw new Error('OpenRouter API key not found. Please configure your API key in settings.');
       }
@@ -614,13 +609,7 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
         throw new Error('Target version not found');
       }
 
-      const apiKeysStr = localStorage.getItem('apiKeys');
-      if (!apiKeysStr) {
-        throw new Error('OpenRouter API key not found. Please configure your API key in settings.');
-      }
-      
-      const apiKeys = JSON.parse(apiKeysStr);
-      const apiKey = apiKeys.OpenRouter;
+      const apiKey = getSecureApiKey('apiKeys', 'OpenRouter');
       if (!apiKey) {
         throw new Error('OpenRouter API key not found. Please configure your API key in settings.');
       }

@@ -17,6 +17,7 @@ import {
   SidebarMenuButton,
 } from "@/components/ui/sidebar"
 import { toast } from "sonner"
+import { decryptApiKey, encryptApiKey, migrateApiKeys } from "@/lib/security"
 
 
 export function NavAPIKeysSettings() {
@@ -37,9 +38,20 @@ export function NavAPIKeysSettings() {
     setIsOpen(open)
     if (open) {
       try {
+        // 首先尝试迁移现有的明文API key
+        migrateApiKeys('apiKeys')
+        
         const savedKeys = localStorage.getItem('apiKeys')
         if (savedKeys) {
-          setApiKeys(JSON.parse(savedKeys))
+          const encryptedKeys = JSON.parse(savedKeys)
+          // 解密所有API key用于显示
+          const decryptedKeys: Record<string, string> = {}
+          for (const [providerId, encryptedKey] of Object.entries(encryptedKeys)) {
+            if (typeof encryptedKey === 'string') {
+              decryptedKeys[providerId] = decryptApiKey(encryptedKey)
+            }
+          }
+          setApiKeys(decryptedKeys)
         }
       } catch (error) {
         console.error('Error loading API keys:', error)
@@ -57,9 +69,22 @@ export function NavAPIKeysSettings() {
   }
 
   const saveKeys = () => {
-    localStorage.setItem('apiKeys', JSON.stringify(apiKeys))
-    toast.success('API keys have been saved to local storage')
-    setIsOpen(false)
+    try {
+      // 加密所有API key后保存
+      const encryptedKeys: Record<string, string> = {}
+      for (const [providerId, apiKey] of Object.entries(apiKeys)) {
+        if (apiKey && apiKey.trim() !== '') {
+          encryptedKeys[providerId] = encryptApiKey(apiKey)
+        }
+      }
+      
+      localStorage.setItem('apiKeys', JSON.stringify(encryptedKeys))
+      toast.success('API keys have been saved securely to local storage')
+      setIsOpen(false)
+    } catch (error) {
+      console.error('Error saving API keys:', error)
+      toast.error('Error saving API keys')
+    }
   }
 
   return (
