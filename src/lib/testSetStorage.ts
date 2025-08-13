@@ -1,4 +1,5 @@
 import { generateUid } from './utils';
+import { dataManager } from './data-manager';
 
 // Test result stores the output and metadata for a test execution
 export interface TestResult {
@@ -208,31 +209,42 @@ export const migrateTestSet = (testSet: TestSet): TestSet => {
  * @returns Array of test sets
  */
 export const getTestSets = (): TestSet[] => {
-  try {
-    const data = localStorage.getItem(TEST_SETS_STORAGE_KEY);
-    if (!data) return [];
-    
-    const testSets = JSON.parse(data);
-    if (!Array.isArray(testSets)) {
-      console.error('Test sets data is not an array, resetting to empty array');
-      return [];
-    }
-
-    return testSets
-      .map((testSet: unknown) => {
-        try {
-          validateTestSet(testSet);
-          return migrateTestSet(testSet as TestSet);
-        } catch (error) {
-          console.error('Invalid test set found, skipping:', error);
-          return null;
-        }
-      })
-      .filter((testSet): testSet is TestSet => testSet !== null);
-  } catch (error) {
-    console.error('Error getting test sets:', error);
+  const data = dataManager.safeGetItem(TEST_SETS_STORAGE_KEY);
+  if (!data) return [];
+  
+  const parseResult = dataManager.parseJSON<TestSet[]>(data, () => []);
+  if (!parseResult.isValid) {
+    console.error('解析测试集数据失败:', parseResult.error);
     return [];
   }
+
+  const validation = dataManager.validateArray(parseResult.data || [], (item): item is TestSet => {
+    try {
+      validateTestSet(item);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+  // 应用迁移和修复
+  const processedTestSets = (validation.data || [])
+    .map(testSet => {
+      try {
+        return migrateTestSet(testSet);
+      } catch {
+        return null;
+      }
+    })
+    .filter((testSet): testSet is TestSet => testSet !== null);
+
+  // 如果有数据被修复，异步保存修复后的数据
+  if (parseResult.data && processedTestSets.length !== parseResult.data.length) {
+    console.log(`测试集数据验证完成：修复了 ${parseResult.data.length - processedTestSets.length} 个损坏的测试集`);
+    setTimeout(() => saveTestSets(processedTestSets), 0);
+  }
+
+  return processedTestSets;
 };
 
 /**
@@ -253,22 +265,27 @@ export const getTestSetByUid = (uid: string): TestSet | undefined => {
  * Saves all test sets to localStorage
  * @param testSets - Array of test sets to save
  */
-export const saveTestSets = (testSets: TestSet[]): void => {
-  try {
-    if (!Array.isArray(testSets)) {
-      throw new Error('Test sets must be an array');
+export const saveTestSets = async (testSets: TestSet[]): Promise<void> => {
+  if (!Array.isArray(testSets)) {
+    throw new Error('Test sets must be an array');
+  }
+
+  // Validate all test sets using DataManager
+  const validation = dataManager.validateArray(testSets, (item): item is TestSet => {
+    try {
+      validateTestSet(item);
+      return true;
+    } catch {
+      return false;
     }
+  });
 
-    // Validate all test sets before saving
-    testSets.forEach((testSet, index) => {
-      try {
-        validateTestSet(testSet);
-      } catch (error) {
-        throw new Error(`Invalid test set at index ${index}: ${error}`);
-      }
-    });
+  if (!validation.isValid) {
+    console.warn('Test set validation warnings:', validation.error);
+  }
 
-    localStorage.setItem(TEST_SETS_STORAGE_KEY, JSON.stringify(testSets));
+  try {
+    await dataManager.safeSetItem(TEST_SETS_STORAGE_KEY, JSON.stringify(validation.data), { debounceMs: 200 });
   } catch (error) {
     console.error('Error saving test sets:', error);
     throw error;
@@ -279,7 +296,7 @@ export const saveTestSets = (testSets: TestSet[]): void => {
  * Saves a single test set
  * @param testSet - Test set to save
  */
-export const saveTestSet = (testSet: TestSet): void => {
+export const saveTestSet = async (testSet: TestSet): Promise<void> => {
   validateTestSet(testSet);
   
   const testSets = getTestSets();
@@ -287,7 +304,7 @@ export const saveTestSet = (testSet: TestSet): void => {
   
   const updatedTestSet = {
     ...testSet,
-    updatedAt: new Date().toISOString()
+    updatedAt: dataManager.getCurrentTimestamp()
   };
   
   if (index >= 0) {
@@ -296,7 +313,7 @@ export const saveTestSet = (testSet: TestSet): void => {
     testSets.push(updatedTestSet);
   }
   
-  saveTestSets(testSets);
+  await saveTestSets(testSets);
 };
 
 /**

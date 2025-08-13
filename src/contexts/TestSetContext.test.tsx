@@ -112,7 +112,7 @@ describe('TestSetContext', () => {
     // Setup default mocks
     mockTestSetStorage.getTestSets.mockReturnValue([]);
     mockTestSetStorage.createTestSet.mockReturnValue(mockTestSet);
-    mockTestSetStorage.saveTestSet.mockImplementation(() => {});
+    mockTestSetStorage.saveTestSet.mockImplementation(() => Promise.resolve());
     mockTestSetStorage.deleteTestSet.mockImplementation(() => {});
     mockTestSetStorage.addTestCase.mockReturnValue({
       ...mockTestSet,
@@ -271,9 +271,9 @@ describe('TestSetContext', () => {
     mockTestSetStorage.getTestSets.mockReturnValue([mockTestSet]);
     mockTestSetStorage.createTestResult.mockImplementation((content, status, error, executionTime) => ({
       id: 'result-1',
-      content,
+      content: content || '',
       timestamp: '2023-01-01T00:00:00.000Z',
-      status,
+      status: status || 'pending',
       error,
       executionTime
     }));
@@ -340,9 +340,9 @@ describe('TestSetContext', () => {
     mockTestSetStorage.getTestSets.mockReturnValue([testSetWithMultipleCases]);
     mockTestSetStorage.createTestResult.mockImplementation((content, status, error, executionTime) => ({
       id: 'result-1',
-      content,
+      content: content || '',
       timestamp: '2023-01-01T00:00:00.000Z',
-      status,
+      status: status || 'pending',
       error,
       executionTime
     }));

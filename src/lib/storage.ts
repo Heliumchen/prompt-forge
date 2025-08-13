@@ -54,12 +54,23 @@ export interface Project {
   versions: Version[];     // 所有版本历史
 }
 
+import { dataManager } from './data-manager';
+
 // 本地存储键名
 const STORAGE_KEY = 'prompt-forge-projects';
 
+// 项目验证器
+const isValidProject = (data: unknown): data is Project => {
+  const p = data as Record<string, unknown>;
+  return typeof p?.uid === 'string' && 
+         typeof p?.name === 'string' && 
+         typeof p?.currentVersion === 'number' &&
+         Array.isArray(p?.versions);
+};
+
 // 将旧格式项目转换为新格式
 const migrateProject = (oldProject: Omit<Project, 'currentVersion' | 'versions'> & { prompts?: Prompt[], messages?: Message[], variables?: Variable[], modelConfig?: ModelConfig }): Project => {
-  const now = new Date().toISOString();
+  const now = dataManager.getCurrentTimestamp();
   const version: Version = {
     id: 1,
     createdAt: now,
@@ -84,7 +95,7 @@ const migrateProject = (oldProject: Omit<Project, 'currentVersion' | 'versions'>
 
 // 创建新版本
 export const createNewVersion = (project: Project, description: string): Project => {
-  const now = new Date().toISOString();
+  const now = dataManager.getCurrentTimestamp();
   const currentVersion = project.versions.find(v => v.id === project.currentVersion);
   if (!currentVersion) throw new Error('Current version not found');
 
@@ -94,7 +105,7 @@ export const createNewVersion = (project: Project, description: string): Project
     createdAt: now,
     updatedAt: now,
     description,
-    data: { ...currentVersion.data }
+    data: dataManager.deepClone(currentVersion.data)
   };
 
   return {
@@ -117,7 +128,7 @@ export const switchVersion = (project: Project, versionId: number): Project => {
 
 // 更新当前版本数据
 export const updateCurrentVersion = (project: Project, data: Partial<VersionData>): Project => {
-  const now = new Date().toISOString();
+  const now = dataManager.getCurrentTimestamp();
   const versionIndex = project.versions.findIndex(v => v.id === project.currentVersion);
   if (versionIndex === -1) throw new Error('Current version not found');
 
@@ -138,129 +149,106 @@ export const updateCurrentVersion = (project: Project, data: Partial<VersionData
 };
 
 // 保存所有项目
-export const saveProjects = (projects: Project[]): void => {
+export const saveProjects = async (projects: Project[]): Promise<void> => {
+  // 验证项目数据
+  const validation = dataManager.validateArray(projects, isValidProject);
+  if (!validation.isValid) {
+    console.warn('Project validation warnings:', validation.error);
+  }
+
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+    await dataManager.safeSetItem(STORAGE_KEY, JSON.stringify(validation.data), { debounceMs: 200 });
   } catch (error) {
     console.error('保存项目失败:', error);
+    throw error;
   }
 };
 
-// 数据验证和修复函数
+// 简化的数据验证和修复函数
 const validateAndFixProject = (project: unknown): Project | null => {
-  try {
-    // 基本字段验证
-    if (!project || typeof project !== 'object') return null;
-    const proj = project as Record<string, unknown>;
-    if (!proj.uid || typeof proj.uid !== 'string') return null;
-    if (!proj.name || typeof proj.name !== 'string') return null;
+  const validation = dataManager.validateData(project, (data): data is Project => {
+    const proj = data as Record<string, unknown>;
+    return !!(
+      proj?.uid && typeof proj.uid === 'string' &&
+      proj?.name && typeof proj.name === 'string' &&
+      (Array.isArray(proj?.versions) || !('versions' in proj))
+    );
+  });
 
-    // 检查是否需要迁移旧格式
-    if (!('versions' in proj)) {
-      return migrateProject(proj as Omit<Project, 'versions'>);
-    }
-
-    if (!Array.isArray(proj.versions) || proj.versions.length === 0) return null;
-
-    // 修复版本数据
-    const fixedVersions = (proj.versions as unknown[]).map((version: unknown) => {
-      if (!version || typeof version !== 'object') return null;
-      
-      // 确保版本ID是数字
-      const ver = version as Record<string, unknown>;
-      const versionId = typeof ver.id === 'number' ? ver.id : parseInt(String(ver.id), 10);
-      if (isNaN(versionId)) return null;
-
-      // 修复prompts和messages中的ID，确保它们是数字
-      const versionData = (version as Record<string, unknown>).data as Record<string, unknown>;
-      const fixedPrompts = Array.isArray(versionData?.prompts) ? 
-        (versionData.prompts as unknown[]).map((prompt: unknown, index: number) => {
-          const p = prompt as Record<string, unknown>;
-          return {
-            id: typeof p.id === 'number' && !isNaN(p.id) ? p.id : index + 1,
-            role: (p.role as 'system' | 'user' | 'assistant') || 'user',
-            content: (p.content as string) || '',
-            image_urls: p.image_urls as string[] || undefined
-          };
-        }) : [];
-
-      const fixedMessages = Array.isArray(versionData?.messages) ? 
-        (versionData.messages as unknown[]).map((message: unknown, index: number) => {
-          const m = message as Record<string, unknown>;
-          return {
-            id: typeof m.id === 'number' && !isNaN(m.id) ? m.id : index + 1,
-            role: (m.role as 'system' | 'user' | 'assistant') || 'user',
-            content: (m.content as string) || '',
-            image_urls: m.image_urls as string[] || undefined
-          };
-        }) : [];
-
-      const fixedVariables = Array.isArray(versionData?.variables) ? versionData.variables as Variable[] : [];
-
-      return {
-        ...version,
-        id: versionId,
-        createdAt: ver.createdAt as string || new Date().toISOString(),
-        updatedAt: ver.updatedAt as string || new Date().toISOString(),
-        description: ver.description as string || '',
-        data: {
-          ...versionData,
-          prompts: fixedPrompts,
-          messages: fixedMessages,
-          variables: fixedVariables,
-          modelConfig: (versionData?.modelConfig as ModelConfig) || { provider: '', model: '' }
-        }
-      };
-    }).filter(v => v !== null) as Version[];
-
-    if (fixedVersions.length === 0) return null;
-
-    // 确保currentVersion是有效的版本ID
-    const currentVersion = typeof proj.currentVersion === 'number' ? 
-      proj.currentVersion : 
-      parseInt(String(proj.currentVersion), 10);
-    
-    const validCurrentVersion = fixedVersions.find(v => v.id === currentVersion) ? 
-      currentVersion : fixedVersions[0].id;
-
-    return {
-      uid: proj.uid as string,
-      name: proj.name as string,
-      icon: (proj.icon as string) || '📝',
-      currentVersion: validCurrentVersion,
-      versions: fixedVersions
-    };
-  } catch (error) {
-    console.warn('项目数据修复失败:', error);
+  if (!validation.isValid || !validation.data) {
     return null;
   }
+
+  const proj = validation.data as Project;
+
+  // 检查是否需要迁移旧格式
+  if (!('versions' in proj) || !Array.isArray(proj.versions)) {
+    return migrateProject(proj as unknown as Omit<Project, 'versions'> & { prompts?: Prompt[], messages?: Message[], variables?: Variable[], modelConfig?: ModelConfig });
+  }
+
+  // 简化版本修复 - 只修复基本结构
+  const fixedVersions = proj.versions
+    .filter(v => v && typeof v.id === 'number')
+    .map(version => ({
+      ...version,
+      createdAt: version.createdAt || dataManager.getCurrentTimestamp(),
+      updatedAt: version.updatedAt || dataManager.getCurrentTimestamp(),
+      description: version.description || '',
+      data: {
+        prompts: Array.isArray(version.data?.prompts) ? version.data.prompts : [],
+        messages: Array.isArray(version.data?.messages) ? version.data.messages : [],
+        variables: Array.isArray(version.data?.variables) ? version.data.variables : [],
+        modelConfig: version.data?.modelConfig || { provider: '', model: '' }
+      }
+    }));
+
+  if (fixedVersions.length === 0) return null;
+
+  // 确保currentVersion是有效的版本ID
+  const validCurrentVersion = fixedVersions.find(v => v.id === proj.currentVersion) ? 
+    proj.currentVersion : fixedVersions[0].id;
+
+  return {
+    uid: proj.uid,
+    name: proj.name,
+    icon: proj.icon || '📝',
+    currentVersion: validCurrentVersion,
+    versions: fixedVersions
+  };
 };
 
 // 获取所有项目
 export const getProjects = (): Project[] => {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (!data) return [];
-    
-    const rawProjects = JSON.parse(data);
-    if (!Array.isArray(rawProjects)) return [];
-
-    // 验证和修复每个项目
-    const validatedProjects = rawProjects
-      .map(validateAndFixProject)
-      .filter(Boolean) as Project[];
-
-    // 如果有项目被修复或删除，保存修复后的数据
-    if (validatedProjects.length !== rawProjects.length) {
-      console.log(`数据验证完成：修复了 ${rawProjects.length - validatedProjects.length} 个损坏的项目`);
-      saveProjects(validatedProjects);
-    }
-
-    return validatedProjects;
-  } catch (error) {
-    console.error('加载项目失败:', error);
+  const data = dataManager.safeGetItem(STORAGE_KEY);
+  if (!data) return [];
+  
+  const parseResult = dataManager.parseJSON<Project[]>(data, () => []);
+  if (!parseResult.isValid) {
+    console.error('解析项目数据失败:', parseResult.error);
     return [];
   }
+
+  const validation = dataManager.validateArray(parseResult.data || [], isValidProject);
+  
+  // 修复损坏的项目
+  const validatedProjects = (validation.data || [])
+    .map(project => {
+      try {
+        return validateAndFixProject(project) || null;
+      } catch {
+        return null;
+      }
+    })
+    .filter((project): project is Project => project !== null);
+
+  // 如果有项目被修复或删除，异步保存修复后的数据
+  if (parseResult.data && validatedProjects.length !== parseResult.data.length) {
+    console.log(`数据验证完成：修复了 ${parseResult.data.length - validatedProjects.length} 个损坏的项目`);
+    // 使用 setTimeout 避免阻塞当前操作
+    setTimeout(() => saveProjects(validatedProjects), 0);
+  }
+
+  return validatedProjects;
 };
 
 // 根据UID获取特定项目
@@ -270,7 +258,7 @@ export const getProjectByUid = (uid: string): Project | undefined => {
 };
 
 // 保存单个项目
-export const saveProject = (project: Project): void => {
+export const saveProject = async (project: Project): Promise<void> => {
   const projects = getProjects();
   const index = projects.findIndex(p => p.uid === project.uid);
   
@@ -280,14 +268,14 @@ export const saveProject = (project: Project): void => {
     projects.push(project);
   }
   
-  saveProjects(projects);
+  await saveProjects(projects);
 };
 
 // 删除项目
-export const deleteProject = (uid: string): void => {
+export const deleteProject = async (uid: string): Promise<void> => {
   const projects = getProjects();
   const filteredProjects = projects.filter(project => project.uid !== uid);
-  saveProjects(filteredProjects);
+  await saveProjects(filteredProjects);
 };
 
 // 清除所有项目数据

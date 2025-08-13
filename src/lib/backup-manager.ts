@@ -362,6 +362,8 @@ export class BackupManager {
 
   /**
    * 恢复数据
+   * @param backupData 备份数据
+   * @param mergeConflicts true=合并数据保留本地独有项, false=完全替换本地数据
    */
   private restoreData(backupData: BackupData, mergeConflicts: boolean): void {
     if (mergeConflicts) {
@@ -389,12 +391,18 @@ export class BackupManager {
         }
       }
       
-      saveProjects(mergedProjects);
-      saveTestSets(mergedTestSets);
+      console.log(`Merging data: ${mergedProjects.length} projects, ${mergedTestSets.length} test sets`);
+      // Note: saveProjects and saveTestSets are now async, but we don't await here to avoid blocking
+      // The save operations will complete in the background
+      saveProjects(mergedProjects).catch(console.error);
+      saveTestSets(mergedTestSets).catch(console.error);
     } else {
-      // 完全替换
-      saveProjects(backupData.projects);
-      saveTestSets(backupData.testSets);
+      // 完全替换本地数据
+      console.log(`Replacing local data with backup: ${backupData.projects.length} projects, ${backupData.testSets.length} test sets`);
+      // Note: saveProjects and saveTestSets are now async, but we don't await here to avoid blocking
+      // The save operations will complete in the background
+      saveProjects(backupData.projects).catch(console.error);
+      saveTestSets(backupData.testSets).catch(console.error);
     }
   }
 

@@ -158,6 +158,8 @@ export function NavBackupSettings() {
 
   const handleResolveConflicts = async (mergeStrategy: "replace" | "merge") => {
     try {
+      // Fix: Pass the correct boolean parameter for the merge strategy
+      // true = merge conflicts, false = replace local data completely
       await backupManager.restoreFromGitHub(mergeStrategy === "merge");
       setShowConflictDialog(false);
       setConflictInfo(null);
@@ -495,7 +497,7 @@ export function NavBackupSettings() {
               Data Conflicts Detected
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <p>
                   There are conflicts between your local data and the backup
                   data. Choose how to resolve them:
@@ -559,6 +561,13 @@ export function NavBackupSettings() {
                     )}
                   </div>
                 )}
+
+                <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-md p-3">
+                  <div className="text-sm space-y-2">
+                    <p><strong>Replace Local Data:</strong> Completely overwrites all your local projects and test sets with the backup data. Local-only items will be lost.</p>
+                    <p><strong>Merge Data:</strong> Combines local and backup data. Keeps local-only items and uses backup versions for conflicts.</p>
+                  </div>
+                </div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
