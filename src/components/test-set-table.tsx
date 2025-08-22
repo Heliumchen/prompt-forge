@@ -35,6 +35,7 @@ interface TestSetTableProps {
   versionIdentifier?: string;
   comparisonColumns?: ComparisonColumn[];
   onUpdateTestCase: (caseId: string, variableValues: Record<string, string>) => void;
+  onUpdateTestCaseMessages: (caseId: string, messages: Array<{role: 'user' | 'assistant', content: string}>) => void;
   onDeleteTestCase: (caseId: string) => void;
   onDuplicateTestCase: (caseId: string) => void;
   onBulkDeleteTestCases?: (caseIds: string[]) => void;
@@ -48,6 +49,7 @@ export function TestSetTable({
   versionIdentifier = targetVersion ? `v${targetVersion}` : 'default',
   comparisonColumns: _comparisonColumns = [],
   onUpdateTestCase,
+  onUpdateTestCaseMessages,
   onDeleteTestCase,
   onDuplicateTestCase,
   onBulkDeleteTestCases,
@@ -227,6 +229,11 @@ export function TestSetTable({
                 </th>
               ))}
               
+              {/* Messages column */}
+              <th className="px-4 py-3 text-left text-sm font-medium text-foreground w-[120px]">
+                Messages
+              </th>
+              
               {/* Actions column */}
               <th className="px-4 py-3 text-left text-sm font-medium text-foreground w-[60px]">
                 Actions
@@ -247,6 +254,9 @@ export function TestSetTable({
                 onSelectionChange={(selected) => handleTestCaseSelection(testCase.id, selected)}
                 onUpdateVariables={(variableValues) => 
                   onUpdateTestCase(testCase.id, variableValues)
+                }
+                onUpdateMessages={(messages) => 
+                  onUpdateTestCaseMessages(testCase.id, messages)
                 }
                 onDelete={() => onDeleteTestCase(testCase.id)}
                 onDuplicate={() => onDuplicateTestCase(testCase.id)}

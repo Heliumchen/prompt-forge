@@ -20,6 +20,7 @@ interface TestCaseRowProps {
   showSelection?: boolean;
   onSelectionChange?: (selected: boolean) => void;
   onUpdateVariables: (variableValues: Record<string, string>) => void;
+  onUpdateMessages: (messages: Array<{role: 'user' | 'assistant', content: string}>) => void;
   onDelete: () => void;
   onDuplicate: () => void;
   onRunTest: (versionIdentifier?: string) => Promise<void>;
@@ -36,6 +37,7 @@ export function TestCaseRow({
   showSelection = false,
   onSelectionChange,
   onUpdateVariables,
+  onUpdateMessages,
   onDelete,
   onDuplicate,
   onRunTest,
@@ -44,7 +46,11 @@ export function TestCaseRow({
   const [localVariableValues, setLocalVariableValues] = useState<Record<string, string>>(
     testCase.variableValues
   );
+  const [localMessages, setLocalMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>(
+    testCase.messages || []
+  );
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [hasUnsavedMessagesChanges, setHasUnsavedMessagesChanges] = useState(false);
 
   // Handle variable value changes with debounced save
   const handleVariableChange = useCallback((variableName: string, value: string) => {
@@ -69,13 +75,50 @@ export function TestCaseRow({
     }
   }, [hasUnsavedChanges, localVariableValues, onUpdateVariables]);
 
+  // Handle messages changes with debounced save
+  const handleMessagesChange = useCallback((messagesText: string) => {
+    try {
+      const parsed = messagesText.trim() ? JSON.parse(messagesText) : [];
+      
+      // Validate format
+      if (Array.isArray(parsed)) {
+        for (const msg of parsed) {
+          if (!msg.role || !msg.content || !['user', 'assistant'].includes(msg.role)) {
+            throw new Error('Invalid message format');
+          }
+        }
+        
+        setLocalMessages(parsed);
+        setHasUnsavedMessagesChanges(true);
+
+        // Debounced save after 500ms of no changes
+        const timeoutId = setTimeout(() => {
+          onUpdateMessages(parsed);
+          setHasUnsavedMessagesChanges(false);
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
+      }
+    } catch {
+      // Invalid JSON, don't update state
+    }
+  }, [onUpdateMessages]);
+
+  // Handle immediate save on blur for messages
+  const handleMessagesBlur = useCallback(() => {
+    if (hasUnsavedMessagesChanges) {
+      onUpdateMessages(localMessages);
+      setHasUnsavedMessagesChanges(false);
+    }
+  }, [hasUnsavedMessagesChanges, localMessages, onUpdateMessages]);
+
   const result = testCase.results[versionIdentifier];
 
   return (
     <tr 
       className={cn(
         "border-b border-border hover:bg-muted/30 transition-colors",
-        hasUnsavedChanges && "bg-yellow-50/50 dark:bg-yellow-900/10",
+        (hasUnsavedChanges || hasUnsavedMessagesChanges) && "bg-yellow-50/50 dark:bg-yellow-900/10",
         selected && "bg-blue-50/50 dark:bg-blue-900/10",
         className
       )}
@@ -139,6 +182,27 @@ export function TestCaseRow({
           />
         </td>
       ))}
+
+      {/* Messages cell */}
+      <td className="px-4 py-3">
+        <AutoTextarea
+          value={JSON.stringify(localMessages, null, 2)}
+          onChange={(e) => handleMessagesChange(e.target.value)}
+          onBlur={handleMessagesBlur}
+          placeholder='[{"role":"user","content":""}]'
+          maxHeight={220}
+          className={cn(
+            "min-w-[160px] custom-scrollbar font-mono text-xs",
+            hasUnsavedMessagesChanges && "border-yellow-400 dark:border-yellow-600"
+          )}
+          aria-label={`Messages for test case ${rowIndex + 1}`}
+        />
+        {localMessages.length > 0 && (
+          <div className="text-xs text-muted-foreground mt-1">
+            {localMessages.length} message{localMessages.length !== 1 ? 's' : ''}
+          </div>
+        )}
+      </td>
 
       {/* Actions cell */}
       <td className="px-4 py-3">

@@ -146,3 +146,188 @@ export function hasVariables(template: string): boolean {
   VARIABLE_PATTERN.lastIndex = 0;
   return VARIABLE_PATTERN.test(template);
 }
+
+/**
+ * Extracts variable value from system message by comparing with prompt template
+ * @param promptTemplate - The prompt template containing the variable
+ * @param systemContent - The system message content to extract from
+ * @param variableName - The name of the variable to extract
+ * @returns The extracted variable value or null if not found
+ */
+export function extractVariableValueFromSystemMessage(promptTemplate: string, systemContent: string, variableName: string): string | null {
+  const variablePattern = `{{${variableName}}}`;
+  
+  if (!promptTemplate.includes(variablePattern)) {
+    return null;
+  }
+  
+  // Use segment-based extraction inspired by your algorithm
+  return extractUsingSegments(promptTemplate, systemContent, variableName);
+}
+
+/**
+ * Extracts variable value using segment-based approach similar to your algorithm
+ */
+function extractUsingSegments(promptTemplate: string, systemContent: string, variableName: string): string | null {
+  const variableRegex = /\{\{([^{}]+)\}\}/g;
+  let match;
+  
+  // Find all variables and their positions in the template
+  const variablePositions: { name: string; start: number; end: number }[] = [];
+  
+  while ((match = variableRegex.exec(promptTemplate)) !== null) {
+    variablePositions.push({
+      name: match[1],
+      start: match.index,
+      end: match.index + match[0].length
+    });
+  }
+  
+  // If no variables found, return null
+  if (variablePositions.length === 0) {
+    return null;
+  }
+  
+  // Sort by position
+  variablePositions.sort((a, b) => a.start - b.start);
+  
+  // Create segments: text and variable segments
+  const segments: { type: 'text' | 'variable'; content: string; name?: string }[] = [];
+  
+  // Add first text segment if exists
+  if (variablePositions[0].start > 0) {
+    segments.push({
+      type: 'text',
+      content: promptTemplate.substring(0, variablePositions[0].start)
+    });
+  }
+  
+  // Add variables and text segments between them
+  for (let i = 0; i < variablePositions.length; i++) {
+    const variable = variablePositions[i];
+    
+    // Add the variable segment
+    segments.push({
+      type: 'variable',
+      content: `{{${variable.name}}}`,
+      name: variable.name
+    });
+    
+    // Add text segment after variable (if not the last variable)
+    if (i < variablePositions.length - 1) {
+      const nextVariable = variablePositions[i + 1];
+      const textBetween = promptTemplate.substring(variable.end, nextVariable.start);
+      if (textBetween) {
+        segments.push({
+          type: 'text',
+          content: textBetween
+        });
+      }
+    }
+  }
+  
+  // Add final text segment if exists
+  const lastVariable = variablePositions[variablePositions.length - 1];
+  if (lastVariable.end < promptTemplate.length) {
+    segments.push({
+      type: 'text',
+      content: promptTemplate.substring(lastVariable.end)
+    });
+  }
+  
+  // Now extract the target variable from system content using segments
+  return extractVariableFromSegments(segments, systemContent, variableName);
+}
+
+/**
+ * Extract variable from segments by matching template structure with content
+ */
+function extractVariableFromSegments(segments: { type: 'text' | 'variable'; content: string; name?: string }[], systemContent: string, variableName: string): string | null {
+  let contentRemaining = systemContent;
+  let foundAnyText = false;
+  
+  for (let i = 0; i < segments.length; i++) {
+    const segment = segments[i];
+    
+    if (segment.type === 'text') {
+      // Find this text segment in the remaining content
+      const textPos = contentRemaining.indexOf(segment.content);
+      
+      if (textPos === -1) {
+        // Text segment not found - this indicates a structure mismatch
+        // We should not extract anything in this case
+        return null;
+      }
+      
+      foundAnyText = true;
+      
+      // If this is the first segment, just skip past it
+      if (i === 0) {
+        contentRemaining = contentRemaining.substring(textPos + segment.content.length);
+        continue;
+      }
+      
+      // If previous segment was our target variable, extract its value
+      if (i > 0 && segments[i - 1].type === 'variable' && segments[i - 1].name === variableName) {
+        const variableValue = contentRemaining.substring(0, textPos);
+        return variableValue.trim();
+      }
+      
+      // Skip past this text segment
+      contentRemaining = contentRemaining.substring(textPos + segment.content.length);
+      
+    } else if (segment.type === 'variable') {
+      // This is a variable placeholder - we'll handle it when we find the next text segment
+      continue;
+    }
+  }
+  
+  // Handle case where the target variable is the last segment
+  // But only if we found at least some matching text structure
+  if (foundAnyText && segments.length > 0 && segments[segments.length - 1].type === 'variable' && segments[segments.length - 1].name === variableName) {
+    return contentRemaining.trim();
+  }
+  
+  return null;
+}
+
+
+/**
+ * Extracts all variable values from system message content using prompt templates
+ * @param systemContent - The system message content to extract from
+ * @param promptTemplates - Array of prompt templates containing variables
+ * @returns Record of variable names to their extracted values
+ */
+export function extractVariablesFromSystemMessage(systemContent: string, promptTemplates: string[]): Record<string, string> {
+  const extractedVariables: Record<string, string> = {};
+  
+  if (!systemContent || !promptTemplates || promptTemplates.length === 0) {
+    return extractedVariables;
+  }
+  
+  // Extract all variable names from all prompts
+  const allVariableNames: string[] = [];
+  promptTemplates.forEach(prompt => {
+    const variables = extractVariableNames(prompt);
+    variables.forEach(varName => {
+      if (!allVariableNames.includes(varName)) {
+        allVariableNames.push(varName);
+      }
+    });
+  });
+  
+  // Extract variable values from system message
+  allVariableNames.forEach(varName => {
+    for (const prompt of promptTemplates) {
+      if (prompt.includes(`{{${varName}}}`)) {
+        const value = extractVariableValueFromSystemMessage(prompt, systemContent, varName);
+        if (value !== null) {
+          extractedVariables[varName] = value;
+          break;
+        }
+      }
+    }
+  });
+  
+  return extractedVariables;
+}

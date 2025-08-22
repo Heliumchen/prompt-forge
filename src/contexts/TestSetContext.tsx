@@ -8,8 +8,10 @@ import {
   createTestSet,
   createTestResult,
   addTestCase as addTestCaseToTestSet,
+  addTestCasesFromImport,
   duplicateTestCase as duplicateTestCaseInTestSet,
   updateTestCase as updateTestCaseInTestSet,
+  updateTestCaseMessages,
   deleteTestCase as deleteTestCaseFromTestSet,
   updateTestResult,
   updateTestSetUIState,
@@ -51,8 +53,10 @@ interface TestSetContextType {
   
   // Test case management
   addTestCase: (testSetUid: string) => void;
+  importTestCases: (testSetUid: string, testCasesData: Array<{variableValues: Record<string, string>; messages?: Array<{role: 'user' | 'assistant', content: string}>}>) => void;
   duplicateTestCase: (testSetUid: string, caseId: string) => void;
   updateTestCase: (testSetUid: string, caseId: string, variableValues: Record<string, string>) => void;
+  updateTestCaseMessages: (testSetUid: string, caseId: string, messages: Array<{role: 'user' | 'assistant', content: string}>) => void;
   deleteTestCase: (testSetUid: string, caseId: string) => void;
   bulkDeleteTestCases: (testSetUid: string, caseIds: string[]) => void;
   
@@ -191,6 +195,22 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
     updateTestSet(updatedTestSet);
   };
 
+  const importTestCases = (
+    testSetUid: string, 
+    testCasesData: Array<{
+      variableValues: Record<string, string>; 
+      messages?: Array<{role: 'user' | 'assistant', content: string}>
+    }>
+  ) => {
+    const testSet = testSets.find(ts => ts.uid === testSetUid);
+    if (!testSet) {
+      throw new Error('Test set not found');
+    }
+
+    const updatedTestSet = addTestCasesFromImport(testSet, testCasesData);
+    updateTestSet(updatedTestSet);
+  };
+
   const duplicateTestCase = (testSetUid: string, caseId: string) => {
     const testSet = testSets.find(ts => ts.uid === testSetUid);
     if (!testSet) {
@@ -212,6 +232,20 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     const updatedTestSet = updateTestCaseInTestSet(testSet, caseId, variableValues);
+    updateTestSet(updatedTestSet);
+  };
+
+  const updateTestCaseMessagesFn = (
+    testSetUid: string, 
+    caseId: string, 
+    messages: Array<{role: 'user' | 'assistant', content: string}>
+  ) => {
+    const testSet = testSets.find(ts => ts.uid === testSetUid);
+    if (!testSet) {
+      throw new Error('Test set not found');
+    }
+
+    const updatedTestSet = updateTestCaseMessages(testSet, caseId, messages);
     updateTestSet(updatedTestSet);
   };
 
@@ -442,6 +476,16 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
         content: prompt.content,
         image_urls: prompt.image_urls
       }));
+
+      // Append test case messages if they exist
+      if (testCase.messages && testCase.messages.length > 0) {
+        testCase.messages.forEach(msg => {
+          messages.push({
+            role: msg.role,
+            content: msg.content
+          });
+        });
+      }
 
       // Validate messages
       if (messages.length === 0) {
@@ -810,8 +854,10 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
     deleteTestSet,
     getTestSetsByProject: getTestSetsByProjectFn,
     addTestCase,
+    importTestCases,
     duplicateTestCase,
     updateTestCase,
+    updateTestCaseMessages: updateTestCaseMessagesFn,
     deleteTestCase,
     bulkDeleteTestCases,
     syncVariablesFromVersion,

@@ -5,6 +5,8 @@ import { TestSetControls } from "./test-set-controls";
 import { TestSetTable } from "./test-set-table";
 import { useTestSets } from "@/contexts/TestSetContext";
 import { useProjects } from "@/contexts/ProjectContext";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { TestSetJSONImportDialog } from "./testset-json-import-dialog";
 import { toast } from "sonner";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -59,7 +61,9 @@ class TestSetErrorBoundary extends React.Component<
 export function TestSetView({ testSetUid }: TestSetViewProps) {
   const { 
     currentTestSet, 
-    updateTestCase, 
+    updateTestCase,
+    updateTestCaseMessages,
+    importTestCases, 
     deleteTestCase,
     duplicateTestCase,
     bulkDeleteTestCases,
@@ -72,6 +76,8 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isJSONImportOpen, setIsJSONImportOpen] = useState(false);
+  const [jsonImportData, setJSONImportData] = useState<string>("");
 
   // Get the associated project with memoization for performance
   const associatedProject = useMemo(() => 
@@ -123,6 +129,30 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
     setError(error.message);
   }, []);
 
+  // JSON import handlers
+  const handleJSONPaste = useCallback((jsonData: string) => {
+    if (currentTestSet) {
+      setJSONImportData(jsonData);
+      setIsJSONImportOpen(true);
+    }
+  }, [currentTestSet]);
+
+  const handleJSONImport = useCallback((testCasesData: Array<{
+    variableValues: Record<string, string>;
+    messages: Array<{role: 'user' | 'assistant', content: string}>;
+  }>) => {
+    if (!currentTestSet) return;
+
+    try {
+      importTestCases(currentTestSet.uid, testCasesData);
+      setIsJSONImportOpen(false);
+    } catch (error) {
+      console.error("Failed to import test cases:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to import test cases";
+      toast.error(errorMessage);
+    }
+  }, [currentTestSet, importTestCases]);
+
   // Handle updating test case variables with loading state
   const handleUpdateTestCase = useCallback(async (caseId: string, variableValues: Record<string, string>) => {
     if (!currentTestSet) return;
@@ -137,6 +167,21 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
       setError(errorMessage);
     }
   }, [currentTestSet, updateTestCase]);
+
+  // Handle updating test case messages with loading state
+  const handleUpdateTestCaseMessages = useCallback(async (caseId: string, messages: Array<{role: 'user' | 'assistant', content: string}>) => {
+    if (!currentTestSet) return;
+    
+    try {
+      // Don't show global loading for quick operations like updating test case messages
+      updateTestCaseMessages(currentTestSet.uid, caseId, messages);
+    } catch (error) {
+      console.error("Failed to update test case messages:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to update test case messages";
+      toast.error(errorMessage);
+      setError(errorMessage);
+    }
+  }, [currentTestSet, updateTestCaseMessages]);
 
   // Handle deleting test case with loading state
   const handleDeleteTestCase = useCallback(async (caseId: string) => {
@@ -248,7 +293,8 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
     }
   }, [currentTestSet, associatedProject, selectedVersion, runSingleTest]);
 
-
+  // Add keyboard shortcut support for JSON import
+  useKeyboardShortcuts(false, () => {}, handleJSONPaste);
 
   // Show error state
   if (error) {
@@ -318,6 +364,7 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
             targetVersion={selectedVersion || undefined}
             versionIdentifier={versionIdentifier}
             onUpdateTestCase={handleUpdateTestCase}
+            onUpdateTestCaseMessages={handleUpdateTestCaseMessages}
             onDeleteTestCase={handleDeleteTestCase}
             onDuplicateTestCase={handleDuplicateTestCase}
             onBulkDeleteTestCases={handleBulkDeleteTestCases}
@@ -325,6 +372,18 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
           />
         </div>
       </div>
+
+      {/* JSON Import Dialog */}
+      {currentTestSet && (
+        <TestSetJSONImportDialog
+          isOpen={isJSONImportOpen}
+          onClose={() => setIsJSONImportOpen(false)}
+          onOpenChange={setIsJSONImportOpen}
+          jsonData={jsonImportData}
+          associatedProjectUid={currentTestSet.associatedProjectUid}
+          onImport={handleJSONImport}
+        />
+      )}
     </TestSetErrorBoundary>
   );
 }

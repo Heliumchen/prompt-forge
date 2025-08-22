@@ -15,6 +15,7 @@ export interface TestResult {
 export interface TestCase {
   id: string;
   variableValues: Record<string, string>; // variable name -> value mapping for this test case
+  messages?: Array<{role: 'user' | 'assistant', content: string}>; // additional messages to append after prompts
   results: Record<string, TestResult>; // version identifier -> result
 }
 
@@ -85,6 +86,7 @@ export const createTestCase = (variableNames: string[] = []): TestCase => {
   return {
     id: generateUid(),
     variableValues,
+    messages: [],
     results: {}
   };
 };
@@ -428,6 +430,70 @@ export const addTestCase = (testSet: TestSet): TestSet => {
 };
 
 /**
+ * Adds multiple test cases to a test set from imported data
+ * @param testSet - Test set to add test cases to
+ * @param testCasesData - Array of test case data with variable values and messages
+ * @returns Updated test set with imported test cases
+ */
+export const addTestCasesFromImport = (
+  testSet: TestSet,
+  testCasesData: Array<{
+    variableValues: Record<string, string>;
+    messages?: Array<{role: 'user' | 'assistant', content: string}>;
+  }>
+): TestSet => {
+  validateTestSet(testSet);
+  
+  if (!Array.isArray(testCasesData)) {
+    throw new Error('Test cases data must be an array');
+  }
+  
+  const newTestCases: TestCase[] = testCasesData.map(data => {
+    if (!data || typeof data !== 'object') {
+      throw new Error('Test case data must be an object');
+    }
+    
+    // Validate variable values
+    const variableValues: Record<string, string> = {};
+    if (data.variableValues && typeof data.variableValues === 'object') {
+      Object.entries(data.variableValues).forEach(([key, value]) => {
+        variableValues[key] = String(value || '');
+      });
+    }
+    
+    // Validate messages
+    const messages: Array<{role: 'user' | 'assistant', content: string}> = [];
+    if (data.messages && Array.isArray(data.messages)) {
+      data.messages.forEach((msg, index) => {
+        if (!msg || typeof msg !== 'object' || !msg.role || !msg.content) {
+          throw new Error(`Message at index ${index} must have 'role' and 'content' properties`);
+        }
+        if (!['user', 'assistant'].includes(msg.role)) {
+          throw new Error(`Message at index ${index} must have role 'user' or 'assistant'`);
+        }
+        messages.push({
+          role: msg.role as 'user' | 'assistant',
+          content: String(msg.content)
+        });
+      });
+    }
+    
+    return {
+      id: generateUid(),
+      variableValues,
+      messages,
+      results: {}
+    };
+  });
+  
+  return {
+    ...testSet,
+    testCases: [...testSet.testCases, ...newTestCases],
+    updatedAt: new Date().toISOString()
+  };
+};
+
+/**
  * Duplicates an existing test case in a test set
  * @param testSet - Test set containing the test case to duplicate
  * @param testCaseId - ID of the test case to duplicate
@@ -489,6 +555,59 @@ export const updateTestCase = (
   updatedTestCases[testCaseIndex] = {
     ...updatedTestCases[testCaseIndex],
     variableValues: { ...variableValues }
+  };
+
+  return {
+    ...testSet,
+    testCases: updatedTestCases,
+    updatedAt: new Date().toISOString()
+  };
+};
+
+/**
+ * Updates messages for a specific test case in a test set
+ * @param testSet - Test set containing the test case to update
+ * @param testCaseId - ID of the test case to update
+ * @param messages - New messages array for the test case
+ * @returns Updated test set with the test case messages modified
+ */
+export const updateTestCaseMessages = (
+  testSet: TestSet, 
+  testCaseId: string, 
+  messages: Array<{role: 'user' | 'assistant', content: string}>
+): TestSet => {
+  validateTestSet(testSet);
+  
+  if (!testCaseId || typeof testCaseId !== 'string') {
+    throw new Error('Test case ID is required and must be a string');
+  }
+
+  if (!Array.isArray(messages)) {
+    throw new Error('Messages must be an array');
+  }
+
+  // Validate message format
+  messages.forEach((msg, index) => {
+    if (!msg || typeof msg !== 'object') {
+      throw new Error(`Message at index ${index} must be an object`);
+    }
+    if (!msg.role || !['user', 'assistant'].includes(msg.role)) {
+      throw new Error(`Message at index ${index} must have role 'user' or 'assistant'`);
+    }
+    if (!msg.content || typeof msg.content !== 'string') {
+      throw new Error(`Message at index ${index} must have content as a string`);
+    }
+  });
+
+  const testCaseIndex = testSet.testCases.findIndex(tc => tc.id === testCaseId);
+  if (testCaseIndex === -1) {
+    throw new Error('Test case not found');
+  }
+
+  const updatedTestCases = [...testSet.testCases];
+  updatedTestCases[testCaseIndex] = {
+    ...updatedTestCases[testCaseIndex],
+    messages: [...messages]
   };
 
   return {

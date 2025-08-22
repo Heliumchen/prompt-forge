@@ -15,7 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { extractVariableNames } from "@/lib/variableUtils";
+import { extractVariableNames, extractVariablesFromSystemMessage } from "@/lib/variableUtils";
 import { Project, Version } from "@/lib/storage";
 
 interface JSONImportDialogProps {
@@ -84,27 +84,9 @@ function parseMessagesJSON(jsonData: string, selectedVersion: Version): ParsedJS
     });
 
     // Extract variable values from system message if it exists
-    const extractedVariables: Record<string, string> = {};
-    
-    if (systemMessage && allVariableNames.length > 0) {
-      const systemContent = systemMessage.content;
-      
-      // For each variable, try to match it with the system content
-      // Find the pattern in the prompt and extract the corresponding value from system message
-      allVariableNames.forEach(varName => {
-        // Find prompts that contain this variable
-        for (const prompt of selectedVersion.data.prompts) {
-          if (prompt.content.includes(`{{${varName}}}`)) {
-            // Try to extract the value by comparing prompt template with system content
-            const value = extractVariableValueFromSystemMessage(prompt.content, systemContent, varName);
-            if (value !== null) {
-              extractedVariables[varName] = value;
-              break;
-            }
-          }
-        }
-      });
-    }
+    const extractedVariables = systemMessage
+      ? extractVariablesFromSystemMessage(systemMessage.content, selectedVersion.data.prompts.map(p => p.content))
+      : {};
 
     return {
       messages,
@@ -123,103 +105,6 @@ function parseMessagesJSON(jsonData: string, selectedVersion: Version): ParsedJS
   }
 }
 
-function extractVariableValueFromSystemMessage(promptTemplate: string, systemContent: string, variableName: string): string | null {
-  const variablePattern = `{{${variableName}}}`;
-  
-  // Split both template and content into lines for easier processing
-  const templateLines = promptTemplate.split('\n');
-  const contentLines = systemContent.split('\n');
-  
-  // Find lines containing the variable
-  for (let i = 0; i < templateLines.length; i++) {
-    const templateLine = templateLines[i];
-    if (!templateLine.includes(variablePattern)) {
-      continue;
-    }
-    
-    // Try to find the corresponding line in content
-    const result = extractFromLine(templateLine, contentLines, variableName);
-    if (result !== null) {
-      return result;
-    }
-  }
-  
-  // If line-by-line matching fails, try the original full-text approach
-  return extractFromFullText(promptTemplate, systemContent, variableName);
-}
-
-function extractFromLine(templateLine: string, contentLines: string[], variableName: string): string | null {
-  // Create a regex pattern from the template line
-  // Replace the target variable with a capture group, and other variables with non-greedy wildcards
-  const pattern = templateLine
-    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // Escape special regex characters
-    .replace(new RegExp(`\\\\\\{\\\\\\{${variableName}\\\\\\}\\\\\\}`, 'g'), '(.*?)') // Target variable -> capture group
-    .replace(/\\\\\\{\\\\\\{[a-zA-Z_][a-zA-Z0-9_]*\\\\\\}\\\\\\}/g, '.*?'); // Other variables -> non-greedy wildcard
-  
-  // Try to match against each content line
-  for (const contentLine of contentLines) {
-    try {
-      const regex = new RegExp(`^${pattern}$`);
-      const match = contentLine.match(regex);
-      if (match && match[1] !== undefined) {
-        return match[1].trim();
-      }
-    } catch {
-      // Continue if regex fails
-    }
-  }
-  
-  return null;
-}
-
-function extractFromFullText(promptTemplate: string, systemContent: string, variableName: string): string | null {
-  const variablePattern = `{{${variableName}}}`;
-  const splits = promptTemplate.split(variablePattern);
-  
-  if (splits.length !== 2) {
-    return ''; // Variable appears 0 or multiple times, too complex to handle
-  }
-  
-  const [before, after] = splits;
-  
-  // Find the most distinctive parts of before and after text (last/first few words)
-  const beforeWords = before.trim().split(/\s+/);
-  const afterWords = after.trim().split(/\s+/);
-  
-  const beforeMarker = beforeWords.slice(-3).join(' ').trim(); // Last 3 words
-  const afterMarker = afterWords.slice(0, 3).join(' ').trim();  // First 3 words
-  
-  if (!beforeMarker && !afterMarker) {
-    return '';
-  }
-  
-  let startIndex = 0;
-  let endIndex = systemContent.length;
-  
-  if (beforeMarker) {
-    const beforeIndex = systemContent.lastIndexOf(beforeMarker);
-    if (beforeIndex !== -1) {
-      startIndex = beforeIndex + beforeMarker.length;
-    } else {
-      return ''; // Before marker not found
-    }
-  }
-  
-  if (afterMarker) {
-    const afterIndex = systemContent.indexOf(afterMarker, startIndex);
-    if (afterIndex !== -1) {
-      endIndex = afterIndex;
-    } else {
-      return ''; // After marker not found  
-    }
-  }
-  
-  if (startIndex >= endIndex) {
-    return '';
-  }
-  
-  return systemContent.slice(startIndex, endIndex).trim();
-}
 
 export function JSONImportDialog({ 
   isOpen, 
