@@ -33,6 +33,7 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { PromptTemplateSection } from "@/components/prompt-template-section";
 import { GenerationsSection } from "@/components/generations-section";
 import { PromptReviewSection } from "@/components/prompt-review-section";
+import { JSONImportDialog } from "@/components/json-import-dialog";
 
 export default function Page() {
   const {
@@ -57,6 +58,8 @@ export default function Page() {
   // State
   const [selectedModel, setSelectedModel] = useState<string>("");
   const [isModelSettingsOpen, setIsModelSettingsOpen] = useState(false);
+  const [isJSONImportOpen, setIsJSONImportOpen] = useState(false);
+  const [jsonImportData, setJSONImportData] = useState<string>("");
 
   // Custom hooks
   const generation = useGeneration();
@@ -136,46 +139,84 @@ export default function Page() {
     promptReview.handlePromptReview(currentProject);
   };
 
+  // JSON import handlers
+  const handleJSONPaste = (jsonData: string) => {
+    if (currentProject && !currentTestSet) {
+      setJSONImportData(jsonData);
+      setIsJSONImportOpen(true);
+    }
+  };
+
+  const handleJSONImport = (variableValues: Record<string, string>, messages: Array<{role: string, content: string}>) => {
+    if (!currentProject) return;
+
+    // Update variables with extracted values
+    Object.entries(variableValues).forEach(([name, value]) => {
+      updateVariable(currentProject.uid, name, value);
+    });
+
+    // Add imported messages
+    messages.forEach((message) => {
+      addMessage(currentProject.uid, {
+        role: message.role as "user" | "assistant",
+        content: message.content
+      });
+    });
+
+    setIsJSONImportOpen(false);
+  };
+
   // Keyboard shortcuts
-  useKeyboardShortcuts(generation.isGenerating, handleGenerate);
+  useKeyboardShortcuts(generation.isGenerating, handleGenerate, handleJSONPaste);
 
   return (
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
         {currentProject && (
-          <DialogModelSettings
-            open={isModelSettingsOpen}
-            onOpenChange={setIsModelSettingsOpen}
-            modelConfig={
-              currentProject.versions.find(
-                (v) => v.id === currentProject.currentVersion,
-              )?.data.modelConfig || { provider: "", model: "" }
-            }
-            onSave={(config) => {
-              if (currentProject) {
-                const currentVersion = currentProject.versions.find(
+          <>
+            <DialogModelSettings
+              open={isModelSettingsOpen}
+              onOpenChange={setIsModelSettingsOpen}
+              modelConfig={
+                currentProject.versions.find(
                   (v) => v.id === currentProject.currentVersion,
-                );
-                if (currentVersion) {
-                  updateProject({
-                    ...currentProject,
-                    versions: currentProject.versions.map((v) =>
-                      v.id === currentVersion.id
-                        ? {
-                            ...v,
-                            data: {
-                              ...v.data,
-                              modelConfig: config,
-                            },
-                          }
-                        : v,
-                    ),
-                  });
-                }
+                )?.data.modelConfig || { provider: "", model: "" }
               }
-            }}
-          />
+              onSave={(config) => {
+                if (currentProject) {
+                  const currentVersion = currentProject.versions.find(
+                    (v) => v.id === currentProject.currentVersion,
+                  );
+                  if (currentVersion) {
+                    updateProject({
+                      ...currentProject,
+                      versions: currentProject.versions.map((v) =>
+                        v.id === currentVersion.id
+                          ? {
+                              ...v,
+                              data: {
+                                ...v.data,
+                                modelConfig: config,
+                              },
+                            }
+                          : v,
+                      ),
+                    });
+                  }
+                }
+              }}
+            />
+            
+            <JSONImportDialog
+              isOpen={isJSONImportOpen}
+              onClose={() => setIsJSONImportOpen(false)}
+              onOpenChange={setIsJSONImportOpen}
+              jsonData={jsonImportData}
+              project={currentProject}
+              onImport={handleJSONImport}
+            />
+          </>
         )}
 
         <header className="flex h-16 shrink-0 items-center gap-2 border-b justify-between">
