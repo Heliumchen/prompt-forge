@@ -182,6 +182,7 @@ export function NavTestSets() {
       const headers = [
         "Test Case #",
         ...testSet.variableNames,
+        "Messages (JSON)",
         "Results (JSON)",
       ];
 
@@ -193,6 +194,7 @@ export function NavTestSets() {
             (name) =>
               `"${(testCase.variableValues[name] || "").replace(/"/g, '""')}"`,
           ),
+          `"${JSON.stringify(testCase.messages || []).replace(/"/g, '""')}"`,
           `"${JSON.stringify(testCase.results).replace(/"/g, '""')}"`,
         ];
       });
