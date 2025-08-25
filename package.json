@@ -1,10 +1,12 @@
 {
   "name": "prompt-forge",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
+    "version:patch": "npm version patch --no-git-tag-version",
+    "release": "node scripts/update-changelog.js && npm run version:patch && next build",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest"

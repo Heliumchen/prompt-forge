@@ -15,7 +15,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { TestSet, createTestCase, mergeTestSetVariables } from "@/lib/testSetStorage";
+import {
+  TestSet,
+  createTestCase,
+  mergeTestSetVariables,
+} from "@/lib/testSetStorage";
 import { useTestSets } from "@/contexts/TestSetContext";
 
 interface CSVImportDialogProps {
@@ -29,13 +33,23 @@ interface ParsedCSVData {
   headers: string[];
   rows: Array<{
     variables: Record<string, string>;
-    messages?: Array<{role: 'user' | 'assistant', content: string}>;
+    messages?: Array<{ role: "user" | "assistant"; content: string }>;
   }>;
   newVariables: string[];
   existingVariables: string[];
+  duplicates: number;
+  uniqueRows: Array<{
+    variables: Record<string, string>;
+    messages?: Array<{ role: "user" | "assistant"; content: string }>;
+  }>;
 }
 
-export function CSVImportDialog({ isOpen, onClose, onOpenChange, testSet }: CSVImportDialogProps) {
+export function CSVImportDialog({
+  isOpen,
+  onClose,
+  onOpenChange,
+  testSet,
+}: CSVImportDialogProps) {
   const { updateTestSet } = useTestSets();
   const [isUploading, setIsUploading] = useState(false);
   const [csvData, setCSVData] = useState<ParsedCSVData | null>(null);
@@ -65,21 +79,23 @@ export function CSVImportDialog({ isOpen, onClose, onOpenChange, testSet }: CSVI
 
   // Parse CSV content with proper handling of quoted fields and multiline content
   const parseCSV = (csvText: string): ParsedCSVData => {
-    const lines = csvText.trim().split('\n');
+    const lines = csvText.trim().split("\n");
     if (lines.length < 2) {
-      throw new Error('CSV must contain at least a header row and one data row');
+      throw new Error(
+        "CSV must contain at least a header row and one data row",
+      );
     }
 
     // Parse CSV rows properly handling quoted fields
     const parseCSVRow = (row: string): string[] => {
       const result: string[] = [];
-      let current = '';
+      let current = "";
       let inQuotes = false;
       let i = 0;
 
       while (i < row.length) {
         const char = row[i];
-        
+
         if (char === '"') {
           if (inQuotes && i + 1 < row.length && row[i + 1] === '"') {
             // Escaped quote
@@ -90,17 +106,17 @@ export function CSVImportDialog({ isOpen, onClose, onOpenChange, testSet }: CSVI
             inQuotes = !inQuotes;
             i++;
           }
-        } else if (char === ',' && !inQuotes) {
+        } else if (char === "," && !inQuotes) {
           // End of field
           result.push(current.trim());
-          current = '';
+          current = "";
           i++;
         } else {
           current += char;
           i++;
         }
       }
-      
+
       // Add the last field
       result.push(current.trim());
       return result;
@@ -109,102 +125,112 @@ export function CSVImportDialog({ isOpen, onClose, onOpenChange, testSet }: CSVI
     // Reconstruct CSV properly by handling multiline quoted fields
     const reconstructCSV = (text: string): string[][] => {
       const rows: string[][] = [];
-      const lines = text.split('\n');
-      let currentRow = '';
+      const lines = text.split("\n");
+      let currentRow = "";
       let inQuotes = false;
-      
+
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        
+
         if (currentRow) {
-          currentRow += '\n' + line;
+          currentRow += "\n" + line;
         } else {
           currentRow = line;
         }
-        
+
         // Count quotes to determine if we're still inside a quoted field
         let quoteCount = 0;
         for (const char of currentRow) {
           if (char === '"') quoteCount++;
         }
-        
-        inQuotes = (quoteCount % 2) === 1;
-        
+
+        inQuotes = quoteCount % 2 === 1;
+
         if (!inQuotes) {
           // Complete row found
           if (currentRow.trim()) {
             rows.push(parseCSVRow(currentRow));
           }
-          currentRow = '';
+          currentRow = "";
         }
       }
-      
+
       return rows;
     };
 
     const parsedRows = reconstructCSV(csvText.trim());
     if (parsedRows.length < 2) {
-      throw new Error('CSV must contain at least a header row and one data row');
+      throw new Error(
+        "CSV must contain at least a header row and one data row",
+      );
     }
 
     // Parse header row
-    const headers = parsedRows[0].map(header => 
-      header.replace(/^"(.*)"$/, '$1').trim()
+    const headers = parsedRows[0].map((header) =>
+      header.replace(/^"(.*)"$/, "$1").trim(),
     );
 
     if (headers.length === 0) {
-      throw new Error('CSV must contain at least one column header');
+      throw new Error("CSV must contain at least one column header");
     }
 
     // Filter out empty headers and results columns, identify messages column
-    const variableHeaders = headers.filter(header => 
-      header && 
-      !header.toLowerCase().includes('test case') &&
-      !header.toLowerCase().includes('result') &&
-      !header.toLowerCase().includes('messages')
+    const variableHeaders = headers.filter(
+      (header) =>
+        header &&
+        !header.toLowerCase().includes("test case") &&
+        !header.toLowerCase().includes("result") &&
+        !header.toLowerCase().includes("messages"),
     );
 
-    const messagesHeader = headers.find(header => 
-      header && header.toLowerCase().includes('messages')
+    const messagesHeader = headers.find(
+      (header) => header && header.toLowerCase().includes("messages"),
     );
 
     if (variableHeaders.length === 0 && !messagesHeader) {
-      throw new Error('CSV must contain at least one variable column or messages column');
+      throw new Error(
+        "CSV must contain at least one variable column or messages column",
+      );
     }
 
     // Parse data rows
     const rows: Array<{
       variables: Record<string, string>;
-      messages?: Array<{role: 'user' | 'assistant', content: string}>;
+      messages?: Array<{ role: "user" | "assistant"; content: string }>;
     }> = [];
-    
+
     for (let i = 1; i < parsedRows.length; i++) {
-      const values = parsedRows[i].map(value => 
-        value.replace(/^"(.*)"$/, '$1').trim()
+      const values = parsedRows[i].map((value) =>
+        value.replace(/^"(.*)"$/, "$1").trim(),
       );
 
       if (values.length !== headers.length) {
-        throw new Error(`Row ${i + 1} has ${values.length} columns, but header has ${headers.length} columns`);
+        throw new Error(
+          `Row ${i + 1} has ${values.length} columns, but header has ${headers.length} columns`,
+        );
       }
 
       const variables: Record<string, string> = {};
-      let messages: Array<{role: 'user' | 'assistant', content: string}> | undefined;
-      
+      let messages:
+        | Array<{ role: "user" | "assistant"; content: string }>
+        | undefined;
+
       headers.forEach((header, index) => {
         if (variableHeaders.includes(header)) {
-          variables[header] = values[index] || '';
+          variables[header] = values[index] || "";
         } else if (messagesHeader && header === messagesHeader) {
           // Parse messages JSON
-          const messagesValue = values[index] || '';
+          const messagesValue = values[index] || "";
           if (messagesValue) {
             try {
               const parsed = JSON.parse(messagesValue);
               if (Array.isArray(parsed)) {
-                messages = parsed.filter(msg => 
-                  msg && 
-                  typeof msg === 'object' && 
-                  (msg.role === 'user' || msg.role === 'assistant') && 
-                  typeof msg.content === 'string'
+                messages = parsed.filter(
+                  (msg) =>
+                    msg &&
+                    typeof msg === "object" &&
+                    (msg.role === "user" || msg.role === "assistant") &&
+                    typeof msg.content === "string",
                 );
               }
             } catch (e) {
@@ -219,31 +245,99 @@ export function CSVImportDialog({ isOpen, onClose, onOpenChange, testSet }: CSVI
     }
 
     if (rows.length === 0) {
-      throw new Error('CSV must contain at least one data row');
+      throw new Error("CSV must contain at least one data row");
     }
 
     // Determine new vs existing variables
-    const existingVariables = variableHeaders.filter(header => 
-      testSet.variableNames.includes(header)
+    const existingVariables = variableHeaders.filter((header) =>
+      testSet.variableNames.includes(header),
     );
-    const newVariables = variableHeaders.filter(header => 
-      !testSet.variableNames.includes(header)
+    const newVariables = variableHeaders.filter(
+      (header) => !testSet.variableNames.includes(header),
     );
+
+    // Deduplication logic
+    const isDuplicateTestCase = (
+      row1: {
+        variables: Record<string, string>;
+        messages?: Array<{ role: "user" | "assistant"; content: string }>;
+      },
+      row2: {
+        variables: Record<string, string>;
+        messages?: Array<{ role: "user" | "assistant"; content: string }>;
+      },
+    ): boolean => {
+      // Compare variables
+      const variables1Keys = Object.keys(row1.variables).sort();
+      const variables2Keys = Object.keys(row2.variables).sort();
+
+      if (variables1Keys.length !== variables2Keys.length) return false;
+      if (!variables1Keys.every((key, index) => key === variables2Keys[index]))
+        return false;
+      if (
+        !variables1Keys.every(
+          (key) => row1.variables[key] === row2.variables[key],
+        )
+      )
+        return false;
+
+      // Compare messages
+      const messages1 = row1.messages || [];
+      const messages2 = row2.messages || [];
+
+      if (messages1.length !== messages2.length) return false;
+
+      return messages1.every((msg1, index) => {
+        const msg2 = messages2[index];
+        return msg1.role === msg2.role && msg1.content === msg2.content;
+      });
+    };
+
+    // Check for duplicates within CSV data and against existing test cases
+    const uniqueRows: typeof rows = [];
+    const existingTestCases = testSet.testCases.map((tc) => ({
+      variables: tc.variableValues,
+      messages: tc.messages,
+    }));
+
+    let duplicateCount = 0;
+
+    for (const row of rows) {
+      // Check against existing test cases
+      const isDuplicateOfExisting = existingTestCases.some((existing) =>
+        isDuplicateTestCase(row, existing),
+      );
+
+      // Check against already processed unique rows
+      const isDuplicateOfProcessed = uniqueRows.some((unique) =>
+        isDuplicateTestCase(row, unique),
+      );
+
+      if (isDuplicateOfExisting || isDuplicateOfProcessed) {
+        duplicateCount++;
+      } else {
+        uniqueRows.push(row);
+      }
+    }
 
     return {
       headers: variableHeaders,
       rows,
       newVariables,
-      existingVariables
+      existingVariables,
+      duplicates: duplicateCount,
+      uniqueRows,
     };
   };
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      setError('Please select a valid CSV file');
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      setError("Please select a valid CSV file");
       return;
     }
 
@@ -254,10 +348,13 @@ export function CSVImportDialog({ isOpen, onClose, onOpenChange, testSet }: CSVI
       const text = await file.text();
       const parsed = parseCSV(text);
       setCSVData(parsed);
-      
-      toast.success(`Successfully parsed CSV with ${parsed.rows.length} test cases`);
+
+      toast.success(
+        `Successfully parsed CSV with ${parsed.rows.length} test cases`,
+      );
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to parse CSV file';
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to parse CSV file";
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -275,18 +372,22 @@ export function CSVImportDialog({ isOpen, onClose, onOpenChange, testSet }: CSVI
 
       // If there are new variables, add them to the test set
       if (csvData.newVariables.length > 0) {
-        const allVariables = [...testSet.variableNames, ...csvData.newVariables];
+        const allVariables = [
+          ...testSet.variableNames,
+          ...csvData.newVariables,
+        ];
         updatedTestSet = mergeTestSetVariables(updatedTestSet, allVariables);
       }
 
-      // Create new test cases from CSV data
-      const newTestCases = csvData.rows.map(rowData => {
+      // Create new test cases from unique CSV data only
+      const newTestCases = csvData.uniqueRows.map((rowData) => {
         const testCase = createTestCase(updatedTestSet.variableNames);
-        
+
         // Set variable values from CSV data
-        Object.keys(rowData.variables).forEach(variableName => {
+        Object.keys(rowData.variables).forEach((variableName) => {
           if (updatedTestSet.variableNames.includes(variableName)) {
-            testCase.variableValues[variableName] = rowData.variables[variableName];
+            testCase.variableValues[variableName] =
+              rowData.variables[variableName];
           }
         });
 
@@ -302,16 +403,19 @@ export function CSVImportDialog({ isOpen, onClose, onOpenChange, testSet }: CSVI
       updatedTestSet = {
         ...updatedTestSet,
         testCases: [...updatedTestSet.testCases, ...newTestCases],
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       };
 
       // Update the test set
       updateTestSet(updatedTestSet);
-      
-      toast.success(`Successfully imported ${csvData.rows.length} test cases`);
+
+      toast.success(
+        `Successfully imported ${csvData.uniqueRows.length} test cases${csvData.duplicates > 0 ? ` (${csvData.duplicates} duplicates skipped)` : ""}`,
+      );
       handleClose();
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to import CSV data';
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to import CSV data";
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -329,7 +433,8 @@ export function CSVImportDialog({ isOpen, onClose, onOpenChange, testSet }: CSVI
         <DialogHeader>
           <DialogTitle>Import CSV to Test Set</DialogTitle>
           <DialogDescription>
-            Import test cases from a CSV file. New variables will be automatically added to the test set.
+            Import test cases from a CSV file. New variables will be
+            automatically added to the test set.
           </DialogDescription>
         </DialogHeader>
 
@@ -337,7 +442,7 @@ export function CSVImportDialog({ isOpen, onClose, onOpenChange, testSet }: CSVI
           {/* File Upload Section */}
           <div className="space-y-2">
             <Label>CSV File</Label>
-            <div 
+            <div
               className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center cursor-pointer hover:border-muted-foreground/50 transition-colors"
               onClick={triggerFileSelect}
             >
@@ -346,7 +451,8 @@ export function CSVImportDialog({ isOpen, onClose, onOpenChange, testSet }: CSVI
                 Click to select CSV file or drag and drop
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                CSV format: Variable columns only (test case # and results columns will be ignored)
+                CSV format: Variable columns only (test case # and results
+                columns will be ignored)
               </p>
             </div>
             <Input
@@ -370,7 +476,7 @@ export function CSVImportDialog({ isOpen, onClose, onOpenChange, testSet }: CSVI
           {csvData && (
             <div className="space-y-3">
               <div className="text-sm font-medium">Import Preview</div>
-              
+
               {/* Variables Summary */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
@@ -378,10 +484,9 @@ export function CSVImportDialog({ isOpen, onClose, onOpenChange, testSet }: CSVI
                     Existing Variables ({csvData.existingVariables.length})
                   </div>
                   <div className="text-xs">
-                    {csvData.existingVariables.length > 0 
-                      ? csvData.existingVariables.join(', ')
-                      : 'None'
-                    }
+                    {csvData.existingVariables.length > 0
+                      ? csvData.existingVariables.join(", ")
+                      : "None"}
                   </div>
                 </div>
                 <div className="space-y-1">
@@ -389,10 +494,9 @@ export function CSVImportDialog({ isOpen, onClose, onOpenChange, testSet }: CSVI
                     New Variables ({csvData.newVariables.length})
                   </div>
                   <div className="text-xs">
-                    {csvData.newVariables.length > 0 
-                      ? csvData.newVariables.join(', ')
-                      : 'None'
-                    }
+                    {csvData.newVariables.length > 0
+                      ? csvData.newVariables.join(", ")
+                      : "None"}
                   </div>
                 </div>
               </div>
@@ -400,18 +504,25 @@ export function CSVImportDialog({ isOpen, onClose, onOpenChange, testSet }: CSVI
               {/* Data Preview */}
               <div className="border rounded-lg p-3 max-h-40 overflow-auto">
                 <div className="text-xs font-medium mb-2">
-                  {csvData.rows.length} test cases to import
+                  {csvData.uniqueRows.length} unique test cases to import
+                  {csvData.duplicates > 0
+                    ? ` (${csvData.duplicates} duplicates will be skipped)`
+                    : ""}
                 </div>
                 <div className="space-y-1">
-                  {csvData.rows.slice(0, 3).map((row, index) => (
+                  {csvData.uniqueRows.slice(0, 3).map((row, index) => (
                     <div key={index} className="text-xs text-muted-foreground">
-                      Row {index + 1}: {Object.entries(row.variables).map(([key, value]) => `${key}="${value}"`).join(', ')}
-                      {row.messages && `, Messages: ${row.messages.length} message(s)`}
+                      Row {index + 1}:{" "}
+                      {Object.entries(row.variables)
+                        .map(([key, value]) => `${key}="${value}"`)
+                        .join(", ")}
+                      {row.messages &&
+                        `, Messages: ${row.messages.length} message(s)`}
                     </div>
                   ))}
-                  {csvData.rows.length > 3 && (
+                  {csvData.uniqueRows.length > 3 && (
                     <div className="text-xs text-muted-foreground">
-                      ... and {csvData.rows.length - 3} more rows
+                      ... and {csvData.uniqueRows.length - 3} more unique rows
                     </div>
                   )}
                 </div>
@@ -421,14 +532,17 @@ export function CSVImportDialog({ isOpen, onClose, onOpenChange, testSet }: CSVI
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={isUploading}>
+          <Button
+            variant="outline"
+            onClick={handleClose}
+            disabled={isUploading}
+          >
             Cancel
           </Button>
-          <Button 
-            onClick={handleImport} 
-            disabled={!csvData || isUploading}
-          >
-            {isUploading ? "Importing..." : "Import Test Cases"}
+          <Button onClick={handleImport} disabled={!csvData || isUploading}>
+            {isUploading
+              ? "Importing..."
+              : `Import ${csvData?.uniqueRows.length || 0} Test Cases`}
           </Button>
         </DialogFooter>
       </DialogContent>
