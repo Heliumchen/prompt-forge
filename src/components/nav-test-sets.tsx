@@ -182,7 +182,7 @@ export function NavTestSets() {
       const headers = [
         "Test Case #",
         ...testSet.variableNames,
-        "Messages (JSON)",
+        "Messages",
         "Results (JSON)",
       ];
 

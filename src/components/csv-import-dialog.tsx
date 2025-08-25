@@ -27,7 +27,10 @@ interface CSVImportDialogProps {
 
 interface ParsedCSVData {
   headers: string[];
-  rows: Record<string, string>[];
+  rows: Array<{
+    variables: Record<string, string>;
+    messages?: Array<{role: 'user' | 'assistant', content: string}>;
+  }>;
   newVariables: string[];
   existingVariables: string[];
 }
@@ -153,19 +156,28 @@ export function CSVImportDialog({ isOpen, onClose, onOpenChange, testSet }: CSVI
       throw new Error('CSV must contain at least one column header');
     }
 
-    // Filter out empty headers and results columns
+    // Filter out empty headers and results columns, identify messages column
     const variableHeaders = headers.filter(header => 
       header && 
       !header.toLowerCase().includes('test case') &&
-      !header.toLowerCase().includes('result')
+      !header.toLowerCase().includes('result') &&
+      !header.toLowerCase().includes('messages')
     );
 
-    if (variableHeaders.length === 0) {
-      throw new Error('CSV must contain at least one variable column');
+    const messagesHeader = headers.find(header => 
+      header && header.toLowerCase().includes('messages')
+    );
+
+    if (variableHeaders.length === 0 && !messagesHeader) {
+      throw new Error('CSV must contain at least one variable column or messages column');
     }
 
     // Parse data rows
-    const rows: Record<string, string>[] = [];
+    const rows: Array<{
+      variables: Record<string, string>;
+      messages?: Array<{role: 'user' | 'assistant', content: string}>;
+    }> = [];
+    
     for (let i = 1; i < parsedRows.length; i++) {
       const values = parsedRows[i].map(value => 
         value.replace(/^"(.*)"$/, '$1').trim()
@@ -175,14 +187,35 @@ export function CSVImportDialog({ isOpen, onClose, onOpenChange, testSet }: CSVI
         throw new Error(`Row ${i + 1} has ${values.length} columns, but header has ${headers.length} columns`);
       }
 
-      const rowData: Record<string, string> = {};
+      const variables: Record<string, string> = {};
+      let messages: Array<{role: 'user' | 'assistant', content: string}> | undefined;
+      
       headers.forEach((header, index) => {
         if (variableHeaders.includes(header)) {
-          rowData[header] = values[index] || '';
+          variables[header] = values[index] || '';
+        } else if (messagesHeader && header === messagesHeader) {
+          // Parse messages JSON
+          const messagesValue = values[index] || '';
+          if (messagesValue) {
+            try {
+              const parsed = JSON.parse(messagesValue);
+              if (Array.isArray(parsed)) {
+                messages = parsed.filter(msg => 
+                  msg && 
+                  typeof msg === 'object' && 
+                  (msg.role === 'user' || msg.role === 'assistant') && 
+                  typeof msg.content === 'string'
+                );
+              }
+            } catch (e) {
+              // Ignore invalid JSON, keep messages undefined
+              console.warn(`Failed to parse messages in row ${i + 1}:`, e);
+            }
+          }
         }
       });
 
-      rows.push(rowData);
+      rows.push({ variables, messages });
     }
 
     if (rows.length === 0) {
@@ -251,11 +284,16 @@ export function CSVImportDialog({ isOpen, onClose, onOpenChange, testSet }: CSVI
         const testCase = createTestCase(updatedTestSet.variableNames);
         
         // Set variable values from CSV data
-        Object.keys(rowData).forEach(variableName => {
+        Object.keys(rowData.variables).forEach(variableName => {
           if (updatedTestSet.variableNames.includes(variableName)) {
-            testCase.variableValues[variableName] = rowData[variableName];
+            testCase.variableValues[variableName] = rowData.variables[variableName];
           }
         });
+
+        // Set messages from CSV data
+        if (rowData.messages) {
+          testCase.messages = rowData.messages;
+        }
 
         return testCase;
       });
@@ -367,7 +405,8 @@ export function CSVImportDialog({ isOpen, onClose, onOpenChange, testSet }: CSVI
                 <div className="space-y-1">
                   {csvData.rows.slice(0, 3).map((row, index) => (
                     <div key={index} className="text-xs text-muted-foreground">
-                      Row {index + 1}: {Object.entries(row).map(([key, value]) => `${key}="${value}"`).join(', ')}
+                      Row {index + 1}: {Object.entries(row.variables).map(([key, value]) => `${key}="${value}"`).join(', ')}
+                      {row.messages && `, Messages: ${row.messages.length} message(s)`}
                     </div>
                   ))}
                   {csvData.rows.length > 3 && (
