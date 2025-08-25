@@ -7,8 +7,8 @@ import {
   Plus,
   FlaskConical,
   Download,
-  FileText,
-  Upload,
+  Sheet,
+  FileJson,
 } from "lucide-react";
 
 import {
@@ -272,14 +272,15 @@ export function NavTestSets() {
                       <span>Rename</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => handleExportJSON(testSet)}>
-                      <Upload className="text-muted-foreground" />
-                      <span>Export JSON</span>
-                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleExportCSV(testSet)}>
-                      <FileText className="text-muted-foreground" />
+                      <Sheet className="text-muted-foreground" />
                       <span>Export CSV</span>
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleExportJSON(testSet)}>
+                      <FileJson className="text-muted-foreground" />
+                      <span>Export JSON</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => handleImportCSV(testSet)}>
                       <Download className="text-muted-foreground" />
                       <span>Import CSV</span>
