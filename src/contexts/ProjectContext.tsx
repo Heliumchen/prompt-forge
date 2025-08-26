@@ -21,6 +21,7 @@ interface ProjectContextType {
   projects: Project[];
   currentProject: Project | null;
   setCurrentProject: (project: Project | null) => void;
+  clearCurrentProject: () => void;
   addProject: (
     name: string,
     icon?: string,
@@ -481,10 +482,16 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
     }));
   };
 
+  // 清空当前选中的项目
+  const clearCurrentProject = () => {
+    setCurrentProject(null);
+  };
+
   const value = {
     projects,
     currentProject,
     setCurrentProject,
+    clearCurrentProject,
     addProject,
     updateProject,
     deleteProject,

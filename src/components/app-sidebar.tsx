@@ -22,15 +22,26 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { ThemeToggle } from "./theme-toggle"
+import { useProjects } from "@/contexts/ProjectContext"
+import { useTestSets } from "@/contexts/TestSetContext"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { clearCurrentProject } = useProjects()
+  const { setCurrentTestSet } = useTestSets()
+
+  const handleLogoClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    clearCurrentProject()
+    setCurrentTestSet(null)
+  }
+
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <a href="#">
+              <button onClick={handleLogoClick} className="w-full">
                 <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
                   <Anvil className="size-4" />
                 </div>
@@ -38,7 +49,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <span className="truncate font-medium">Prompt Forge</span>
                   <span className="truncate text-xs">AI Prompt Workbench</span>
                 </div>
-              </a>
+              </button>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

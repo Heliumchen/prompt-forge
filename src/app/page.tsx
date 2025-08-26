@@ -249,7 +249,7 @@ export default function Page() {
 
         {currentTestSet ? (
           <TestSetView testSetUid={currentTestSet.uid} />
-        ) : (
+        ) : currentProject ? (
           <div className="flex pl-2 h-full">
             <PromptTemplateSection
               currentProject={currentProject}
@@ -317,130 +317,130 @@ export default function Page() {
             />
 
             <div className="flex-1 flex flex-col rounded-xl p-4 min-w-0">
-              {currentProject ? (
-                <Tabs defaultValue="generations" className="w-full flex-1">
-                  <TabsList>
-                    <TabsTrigger value="generations">Generations</TabsTrigger>
-                    <TabsTrigger value="prompt-review">
-                      Prompt Review
-                    </TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="generations" className="w-full flex-1">
-                    <GenerationsSection
-                      currentProject={currentProject}
-                      selectedModel={selectedModel}
-                      isGenerating={generation.isGenerating}
-                      generatingMessageId={generation.generatingMessageId}
-                      streamingContent={generation.streamingContent}
-                      streamingMessageId={generation.streamingMessageId}
-                      selectedEvaluationProject={
-                        evaluation.selectedEvaluationProject
-                      }
-                      selectedEvaluationRound={
-                        evaluation.selectedEvaluationRound
-                      }
-                      isEvaluating={evaluation.isEvaluating}
-                      evaluatingRound={evaluation.evaluatingRound}
-                      evaluatingTotal={evaluation.evaluatingTotal}
-                      onModelChange={handleModelChange}
-                      onGenerate={handleGenerate}
-                      onModelSettingsOpen={() => setIsModelSettingsOpen(true)}
-                      onValueChange={(value, id) =>
-                        itemHandlers.handleValueChange(
-                          value,
-                          id,
-                          "message",
-                          currentProject,
-                          updatePrompt,
-                          updateMessage,
-                        )
-                      }
-                      onTypeChange={(roleType, id) =>
-                        itemHandlers.handleTypeChange(
-                          roleType,
-                          id,
-                          "message",
-                          currentProject,
-                          updatePrompt,
-                          updateMessage,
-                        )
-                      }
-                      onCopy={(id) =>
-                        itemHandlers.handleCopy(id, "message", currentProject)
-                      }
-                      onDelete={(id) =>
-                        itemHandlers.handleDelete(
-                          id,
-                          "message",
-                          currentProject,
-                          deletePrompt,
-                          deleteMessage,
-                        )
-                      }
-                      onRegenerate={handleGenerate}
-                      onImageAdd={(id, type, urls) =>
-                        itemHandlers.handleImageAdd(
-                          id,
-                          type,
-                          urls,
-                          currentProject,
-                          updatePrompt,
-                          updateMessage,
-                        )
-                      }
-                      onImageRemove={(id, type, url) =>
-                        itemHandlers.handleImageRemove(
-                          id,
-                          type,
-                          url,
-                          currentProject,
-                          updatePrompt,
-                          updateMessage,
-                        )
-                      }
-                      onAdd={(type) =>
-                        itemHandlers.handleAdd(
-                          type,
-                          currentProject,
-                          addPrompt,
-                          addMessage,
-                        )
-                      }
-                      onClearAll={(type) =>
-                        itemHandlers.handleClearAll(
-                          type,
-                          currentProject,
-                          clearPrompts,
-                          clearMessages,
-                        )
-                      }
-                      getDetectedVariables={getDetectedVariables}
-                      updateVariable={updateVariable}
-                      onEvaluationProjectChange={
-                        evaluation.setSelectedEvaluationProject
-                      }
-                      onEvaluationRoundChange={
-                        evaluation.setSelectedEvaluationRound
-                      }
-                      onEvaluate={handleEvaluate}
-                    />
-                  </TabsContent>
-                  <TabsContent value="prompt-review" className="w-full flex-1">
-                    <PromptReviewSection
-                      selectedReviewModel={promptReview.selectedReviewModel}
-                      reviewContent={promptReview.reviewContent}
-                      isReviewing={promptReview.isReviewing}
-                      isStreamingReview={promptReview.isStreamingReview}
-                      onModelChange={promptReview.setSelectedReviewModel}
-                      onReview={handlePromptReview}
-                      onClearReview={promptReview.clearReviewContent}
-                    />
-                  </TabsContent>
-                </Tabs>
-              ) : (
-                <IntroBlock />
-              )}
+              <Tabs defaultValue="generations" className="w-full flex-1">
+                <TabsList>
+                  <TabsTrigger value="generations">Generations</TabsTrigger>
+                  <TabsTrigger value="prompt-review">
+                    Prompt Review
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="generations" className="w-full flex-1">
+                  <GenerationsSection
+                    currentProject={currentProject}
+                    selectedModel={selectedModel}
+                    isGenerating={generation.isGenerating}
+                    generatingMessageId={generation.generatingMessageId}
+                    streamingContent={generation.streamingContent}
+                    streamingMessageId={generation.streamingMessageId}
+                    selectedEvaluationProject={
+                      evaluation.selectedEvaluationProject
+                    }
+                    selectedEvaluationRound={
+                      evaluation.selectedEvaluationRound
+                    }
+                    isEvaluating={evaluation.isEvaluating}
+                    evaluatingRound={evaluation.evaluatingRound}
+                    evaluatingTotal={evaluation.evaluatingTotal}
+                    onModelChange={handleModelChange}
+                    onGenerate={handleGenerate}
+                    onModelSettingsOpen={() => setIsModelSettingsOpen(true)}
+                    onValueChange={(value, id) =>
+                      itemHandlers.handleValueChange(
+                        value,
+                        id,
+                        "message",
+                        currentProject,
+                        updatePrompt,
+                        updateMessage,
+                      )
+                    }
+                    onTypeChange={(roleType, id) =>
+                      itemHandlers.handleTypeChange(
+                        roleType,
+                        id,
+                        "message",
+                        currentProject,
+                        updatePrompt,
+                        updateMessage,
+                      )
+                    }
+                    onCopy={(id) =>
+                      itemHandlers.handleCopy(id, "message", currentProject)
+                    }
+                    onDelete={(id) =>
+                      itemHandlers.handleDelete(
+                        id,
+                        "message",
+                        currentProject,
+                        deletePrompt,
+                        deleteMessage,
+                      )
+                    }
+                    onRegenerate={handleGenerate}
+                    onImageAdd={(id, type, urls) =>
+                      itemHandlers.handleImageAdd(
+                        id,
+                        type,
+                        urls,
+                        currentProject,
+                        updatePrompt,
+                        updateMessage,
+                      )
+                    }
+                    onImageRemove={(id, type, url) =>
+                      itemHandlers.handleImageRemove(
+                        id,
+                        type,
+                        url,
+                        currentProject,
+                        updatePrompt,
+                        updateMessage,
+                      )
+                    }
+                    onAdd={(type) =>
+                      itemHandlers.handleAdd(
+                        type,
+                        currentProject,
+                        addPrompt,
+                        addMessage,
+                      )
+                    }
+                    onClearAll={(type) =>
+                      itemHandlers.handleClearAll(
+                        type,
+                        currentProject,
+                        clearPrompts,
+                        clearMessages,
+                      )
+                    }
+                    getDetectedVariables={getDetectedVariables}
+                    updateVariable={updateVariable}
+                    onEvaluationProjectChange={
+                      evaluation.setSelectedEvaluationProject
+                    }
+                    onEvaluationRoundChange={
+                      evaluation.setSelectedEvaluationRound
+                    }
+                    onEvaluate={handleEvaluate}
+                  />
+                </TabsContent>
+                <TabsContent value="prompt-review" className="w-full flex-1">
+                  <PromptReviewSection
+                    selectedReviewModel={promptReview.selectedReviewModel}
+                    reviewContent={promptReview.reviewContent}
+                    isReviewing={promptReview.isReviewing}
+                    isStreamingReview={promptReview.isStreamingReview}
+                    onModelChange={promptReview.setSelectedReviewModel}
+                    onReview={handlePromptReview}
+                    onClearReview={promptReview.clearReviewContent}
+                  />
+                </TabsContent>
+              </Tabs>
             </div>
+          </div>
+        ) : (
+          <div className="flex h-full w-full">
+            <IntroBlock />
           </div>
         )}
       </SidebarInset>
