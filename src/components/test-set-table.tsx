@@ -34,19 +34,28 @@ interface TestSetTableProps {
   targetVersion?: number;
   versionIdentifier?: string;
   comparisonColumns?: ComparisonColumn[];
-  onUpdateTestCase: (caseId: string, variableValues: Record<string, string>) => void;
-  onUpdateTestCaseMessages: (caseId: string, messages: Array<{role: 'user' | 'assistant', content: string}>) => void;
+  onUpdateTestCase: (
+    caseId: string,
+    variableValues: Record<string, string>,
+  ) => void;
+  onUpdateTestCaseMessages: (
+    caseId: string,
+    messages: Array<{ role: "user" | "assistant"; content: string }>,
+  ) => void;
   onDeleteTestCase: (caseId: string) => void;
   onDuplicateTestCase: (caseId: string) => void;
   onBulkDeleteTestCases?: (caseIds: string[]) => void;
-  onRunSingleTest: (caseId: string, versionIdentifier?: string) => Promise<void>;
+  onRunSingleTest: (
+    caseId: string,
+    versionIdentifier?: string,
+  ) => Promise<void>;
   className?: string;
 }
 
 export function TestSetTable({
   testSet,
   targetVersion,
-  versionIdentifier = targetVersion ? `v${targetVersion}` : 'default',
+  versionIdentifier = targetVersion ? `v${targetVersion}` : "default",
   comparisonColumns: _comparisonColumns = [],
   onUpdateTestCase,
   onUpdateTestCaseMessages,
@@ -56,38 +65,46 @@ export function TestSetTable({
   onRunSingleTest,
   className,
 }: TestSetTableProps) {
-  const [selectedTestCases, setSelectedTestCases] = useState<Set<string>>(new Set());
+  const [selectedTestCases, setSelectedTestCases] = useState<Set<string>>(
+    new Set(),
+  );
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
-  
+
   const { projects } = useProjects();
   const { updateTestSetUIState } = useTestSets();
-  
+
   // Get comparison version from testSet's UI state
-  const comparisonVersion = testSet.uiState?.selectedComparisonVersion 
-    ? parseInt(testSet.uiState.selectedComparisonVersion, 10) 
+  const comparisonVersion = testSet.uiState?.selectedComparisonVersion
+    ? parseInt(testSet.uiState.selectedComparisonVersion, 10)
     : null;
 
   // Handle individual test case selection
-  const handleTestCaseSelection = useCallback((caseId: string, selected: boolean) => {
-    setSelectedTestCases(prev => {
-      const newSet = new Set(prev);
-      if (selected) {
-        newSet.add(caseId);
-      } else {
-        newSet.delete(caseId);
-      }
-      return newSet;
-    });
-  }, []);
+  const handleTestCaseSelection = useCallback(
+    (caseId: string, selected: boolean) => {
+      setSelectedTestCases((prev) => {
+        const newSet = new Set(prev);
+        if (selected) {
+          newSet.add(caseId);
+        } else {
+          newSet.delete(caseId);
+        }
+        return newSet;
+      });
+    },
+    [],
+  );
 
   // Handle select all/none
-  const handleSelectAll = useCallback((selected: boolean) => {
-    if (selected) {
-      setSelectedTestCases(new Set(testSet.testCases.map(tc => tc.id)));
-    } else {
-      setSelectedTestCases(new Set());
-    }
-  }, [testSet.testCases]);
+  const handleSelectAll = useCallback(
+    (selected: boolean) => {
+      if (selected) {
+        setSelectedTestCases(new Set(testSet.testCases.map((tc) => tc.id)));
+      } else {
+        setSelectedTestCases(new Set());
+      }
+    },
+    [testSet.testCases],
+  );
 
   // Handle bulk delete
   const handleBulkDelete = useCallback(() => {
@@ -104,31 +121,46 @@ export function TestSetTable({
   }, [onBulkDeleteTestCases, selectedTestCases]);
 
   // Get the associated project for version selection
-  const associatedProject = projects.find(p => p.uid === testSet.associatedProjectUid);
+  const associatedProject = projects.find(
+    (p) => p.uid === testSet.associatedProjectUid,
+  );
   const availableVersions = associatedProject?.versions || [];
-  
+
   // Filter out the target version from comparison options
-  const availableComparisonVersions = availableVersions.filter(v => v.id !== targetVersion);
-  
+  const availableComparisonVersions = availableVersions.filter(
+    (v) => v.id !== targetVersion,
+  );
+
   // Handle comparison version change
-  const handleComparisonVersionChange = useCallback((value: string) => {
-    if (value === "none") {
-      updateTestSetUIState(testSet.uid, { selectedComparisonVersion: undefined });
-    } else {
-      updateTestSetUIState(testSet.uid, { selectedComparisonVersion: value });
-    }
-  }, [testSet.uid, updateTestSetUIState]);
+  const handleComparisonVersionChange = useCallback(
+    (value: string) => {
+      if (value === "none") {
+        updateTestSetUIState(testSet.uid, {
+          selectedComparisonVersion: undefined,
+        });
+      } else {
+        updateTestSetUIState(testSet.uid, { selectedComparisonVersion: value });
+      }
+    },
+    [testSet.uid, updateTestSetUIState],
+  );
 
   // Create comparison column based on selected version
-  const dynamicComparisonColumn: ComparisonColumn | null = comparisonVersion ? {
-    id: `comparison-${comparisonVersion}`,
-    versionId: comparisonVersion,
-    versionIdentifier: `v${comparisonVersion}`,
-    label: `#${comparisonVersion}${availableVersions.find(v => v.id === comparisonVersion)?.description ? ` - ${availableVersions.find(v => v.id === comparisonVersion)?.description}` : ''}`,
-  } : null;
+  const dynamicComparisonColumn: ComparisonColumn | null = comparisonVersion
+    ? {
+        id: `comparison-${comparisonVersion}`,
+        versionId: comparisonVersion,
+        versionIdentifier: `v${comparisonVersion}`,
+        label: `#${comparisonVersion}${availableVersions.find((v) => v.id === comparisonVersion)?.description ? ` - ${availableVersions.find((v) => v.id === comparisonVersion)?.description}` : ""}`,
+      }
+    : null;
 
-  const allSelected = testSet.testCases.length > 0 && selectedTestCases.size === testSet.testCases.length;
-  const someSelected = selectedTestCases.size > 0 && selectedTestCases.size < testSet.testCases.length;
+  const allSelected =
+    testSet.testCases.length > 0 &&
+    selectedTestCases.size === testSet.testCases.length;
+  const someSelected =
+    selectedTestCases.size > 0 &&
+    selectedTestCases.size < testSet.testCases.length;
   if (!testSet) {
     return (
       <div className="flex items-center justify-center p-8 text-muted-foreground">
@@ -152,7 +184,8 @@ export function TestSetTable({
         {selectedTestCases.size > 0 && (
           <div className="flex items-center gap-2 p-2 bg-muted/50 border-b">
             <span className="text-sm text-muted-foreground">
-              {selectedTestCases.size} test case{selectedTestCases.size !== 1 ? 's' : ''} selected
+              {selectedTestCases.size} test case
+              {selectedTestCases.size !== 1 ? "s" : ""} selected
             </span>
             <Button
               variant="destructive"
@@ -176,7 +209,7 @@ export function TestSetTable({
                     checked={allSelected}
                     ref={(el) => {
                       if (el) {
-                        const input = el.querySelector('input');
+                        const input = el.querySelector("input");
                         if (input) input.indeterminate = someSelected;
                       }
                     }}
@@ -192,7 +225,7 @@ export function TestSetTable({
               </th>
 
               {/* Compare selector column - always visible */}
-              <th className="px-4 py-3 text-left text-sm font-medium text-foreground min-w-[150px] border-l border-border">
+              <th className="px-4 py-3 text-left text-sm font-medium text-foreground min-w-[150px] border-l border-r border-border">
                 <div className="flex items-center gap-2">
                   <span>Compare</span>
                   <Select
@@ -208,9 +241,15 @@ export function TestSetTable({
                         {availableComparisonVersions
                           .slice()
                           .sort((a, b) => b.id - a.id)
-                          .map(version => (
-                            <SelectItem key={version.id} value={String(version.id)}>
-                              #{version.id}{version.description ? ` - ${version.description}` : ''}
+                          .map((version) => (
+                            <SelectItem
+                              key={version.id}
+                              value={String(version.id)}
+                            >
+                              #{version.id}
+                              {version.description
+                                ? ` - ${version.description}`
+                                : ""}
                             </SelectItem>
                           ))}
                       </SelectGroup>
@@ -228,14 +267,14 @@ export function TestSetTable({
                   {variableName}
                 </th>
               ))}
-              
+
               {/* Messages column */}
               <th className="px-4 py-3 text-left text-sm font-medium text-foreground w-[120px]">
                 Messages
               </th>
-              
+
               {/* Actions column */}
-              <th className="px-4 py-3 text-left text-sm font-medium text-foreground w-[60px]">
+              <th className="px-4 py-3 text-left text-sm font-medium text-foreground w-[60px] border-l border-border">
                 Actions
               </th>
             </tr>
@@ -247,20 +286,26 @@ export function TestSetTable({
                 testCase={testCase}
                 variableNames={testSet.variableNames}
                 versionIdentifier={versionIdentifier}
-                comparisonColumns={dynamicComparisonColumn ? [dynamicComparisonColumn] : []}
+                comparisonColumns={
+                  dynamicComparisonColumn ? [dynamicComparisonColumn] : []
+                }
                 rowIndex={index}
                 selected={selectedTestCases.has(testCase.id)}
                 showSelection={!!onBulkDeleteTestCases}
-                onSelectionChange={(selected) => handleTestCaseSelection(testCase.id, selected)}
-                onUpdateVariables={(variableValues) => 
+                onSelectionChange={(selected) =>
+                  handleTestCaseSelection(testCase.id, selected)
+                }
+                onUpdateVariables={(variableValues) =>
                   onUpdateTestCase(testCase.id, variableValues)
                 }
-                onUpdateMessages={(messages) => 
+                onUpdateMessages={(messages) =>
                   onUpdateTestCaseMessages(testCase.id, messages)
                 }
                 onDelete={() => onDeleteTestCase(testCase.id)}
                 onDuplicate={() => onDuplicateTestCase(testCase.id)}
-                onRunTest={(versionId) => onRunSingleTest(testCase.id, versionId)}
+                onRunTest={(versionId) =>
+                  onRunSingleTest(testCase.id, versionId)
+                }
               />
             ))}
           </tbody>
@@ -268,18 +313,25 @@ export function TestSetTable({
       </div>
 
       {/* Bulk delete confirmation dialog */}
-      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+      <AlertDialog
+        open={showBulkDeleteDialog}
+        onOpenChange={setShowBulkDeleteDialog}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Test Cases</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete {selectedTestCases.size} test case{selectedTestCases.size !== 1 ? 's' : ''}? 
-              This action cannot be undone and will remove all associated test results.
+              Are you sure you want to delete {selectedTestCases.size} test case
+              {selectedTestCases.size !== 1 ? "s" : ""}? This action cannot be
+              undone and will remove all associated test results.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={confirmBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
