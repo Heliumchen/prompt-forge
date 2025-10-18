@@ -516,6 +516,9 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
         top_p: modelConfig.top_p,
         frequency_penalty: modelConfig.frequency_penalty,
         presence_penalty: modelConfig.presence_penalty,
+        reasoning: modelConfig.reasoning_effort
+          ? { effort: modelConfig.reasoning_effort }
+          : undefined,
         stream: false // For test execution, we want the complete response
       });
 

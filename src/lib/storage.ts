@@ -26,6 +26,7 @@ export interface ModelConfig {
   presence_penalty?: number;
   frequency_penalty?: number;
   top_p?: number;
+  reasoning_effort?: 'low' | 'medium' | 'high';
 }
 
 // 版本数据接口

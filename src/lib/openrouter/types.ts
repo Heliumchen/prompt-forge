@@ -46,6 +46,10 @@ export interface ChatMessage {
   image_urls?: string[];
 }
 
+export interface ReasoningConfig {
+  effort?: 'low' | 'medium' | 'high';
+}
+
 export interface ChatCompletionOptions {
   model: string;
   messages: ChatMessage[];
@@ -59,6 +63,7 @@ export interface ChatCompletionOptions {
   tools?: unknown[];
   tool_choice?: unknown;
   response_format?: { type: 'json_object' | 'text' };
+  reasoning?: ReasoningConfig;
 }
 
 export interface ChatCompletionResponse {

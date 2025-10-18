@@ -168,6 +168,9 @@ export function useGeneration() {
           top_p: currentVersion.data.modelConfig?.top_p,
           frequency_penalty: currentVersion.data.modelConfig?.frequency_penalty,
           presence_penalty: currentVersion.data.modelConfig?.presence_penalty,
+          reasoning: currentVersion.data.modelConfig?.reasoning_effort
+            ? { effort: currentVersion.data.modelConfig.reasoning_effort }
+            : undefined,
         };
 
         const stream = await client.chat(messages, options);

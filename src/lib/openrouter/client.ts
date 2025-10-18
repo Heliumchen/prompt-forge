@@ -1,5 +1,5 @@
 import { OpenRouterService } from './service';
-import { ChatMessage, ChatCompletionOptions, StreamChunk } from './types';
+import { ChatMessage, ChatCompletionOptions, StreamChunk, ReasoningConfig } from './types';
 
 export interface LLMOptions {
   model: string;
@@ -13,6 +13,7 @@ export interface LLMOptions {
   tools?: unknown[];
   tool_choice?: unknown;
   response_format?: { type: 'json_object' | 'text' };
+  reasoning?: ReasoningConfig;
 }
 
 export class LLMClient {
@@ -39,6 +40,7 @@ export class LLMClient {
       tools: options.tools,
       tool_choice: options.tool_choice,
       response_format: options.response_format,
+      reasoning: options.reasoning,
     };
 
     const response = await this.service.createChatCompletion(requestOptions);

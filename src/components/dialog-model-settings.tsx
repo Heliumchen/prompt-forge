@@ -14,6 +14,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { ModelConfig } from "@/lib/storage"
 
 interface DialogModelSettingsProps {
@@ -35,9 +42,22 @@ export function DialogModelSettings({
     onSave({
       ...modelConfig,
       temperature: config.temperature,
-      max_tokens: config.max_tokens
+      max_tokens: config.max_tokens,
+      reasoning_effort: config.reasoning_effort
     })
     onOpenChange(false)
+  }
+
+  // 检查是否是 reasoning 模型
+  const isReasoningModel = (model: string): boolean => {
+    const reasoningPatterns = [
+      /gpt-5/i,
+      /o1/i,
+      /o3/i,
+      /grok.*reasoning/i,
+      /gemini.*thinking/i
+    ];
+    return reasoningPatterns.some(pattern => pattern.test(model));
   }
 
   return (
@@ -78,6 +98,31 @@ export function DialogModelSettings({
               placeholder="Default: 4096"
             />
           </div>
+
+          {isReasoningModel(modelConfig.model) && (
+            <div className="grid gap-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="reasoning_effort">Reasoning Effort</Label>
+                <span className="text-xs text-muted-foreground">(for reasoning models)</span>
+              </div>
+              <Select
+                value={config.reasoning_effort || "medium"}
+                onValueChange={(value: 'low' | 'medium' | 'high') => setConfig({ ...config, reasoning_effort: value })}
+              >
+                <SelectTrigger id="reasoning_effort">
+                  <SelectValue placeholder="Select effort level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low (~20% tokens for reasoning)</SelectItem>
+                  <SelectItem value="medium">Medium (~50% tokens for reasoning)</SelectItem>
+                  <SelectItem value="high">High (~80% tokens for reasoning)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Controls how much time the model spends on internal reasoning. Higher effort means more thorough thinking but slower responses.
+              </p>
+            </div>
+          )}
 
           <div className="text-sm text-muted-foreground">
             <a
