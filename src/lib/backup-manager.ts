@@ -3,7 +3,7 @@
  * 负责数据的序列化、反序列化、冲突检测和解决
  */
 
-import { Project, getProjects, saveProjects } from './storage';
+import { Project, TestSet, getProjects, saveProjects } from './storage';
 import { GitHubSyncService } from './github-sync';
 
 // 备份数据结构
@@ -40,6 +40,11 @@ export interface ConflictInfo {
       localOnly: Project[];
       remoteOnly: Project[];
       modified: { local: Project; remote: Project }[];
+    };
+    testSets: {
+      localOnly: TestSet[];
+      remoteOnly: TestSet[];
+      modified: { local: TestSet; remote: TestSet }[];
     };
   };
 }
@@ -263,6 +268,11 @@ export class BackupManager {
         localOnly: [] as Project[],
         remoteOnly: [] as Project[],
         modified: [] as { local: Project; remote: Project }[]
+      },
+      testSets: {
+        localOnly: [] as TestSet[],
+        remoteOnly: [] as TestSet[],
+        modified: [] as { local: TestSet; remote: TestSet }[]
       }
     };
 
@@ -299,10 +309,67 @@ export class BackupManager {
       }
     }
 
+    // 检测testSet冲突（从项目中提取）
+    const localTestSetMap = new Map<string, TestSet>();
+    const remoteTestSetMap = new Map<string, TestSet>();
+    const lastBackupTestSetMap = new Map<string, TestSet>();
+
+    // 收集所有testSet
+    for (const project of localProjects) {
+      if (project.testSet) {
+        localTestSetMap.set(project.testSet.uid, project.testSet);
+      }
+    }
+
+    for (const project of remoteData.projects) {
+      if (project.testSet) {
+        remoteTestSetMap.set(project.testSet.uid, project.testSet);
+      }
+    }
+
+    if (lastBackupData) {
+      for (const project of lastBackupData.projects) {
+        if (project.testSet) {
+          lastBackupTestSetMap.set(project.testSet.uid, project.testSet);
+        }
+      }
+    }
+
+    // 本地独有的testSet
+    for (const [uid, localTestSet] of localTestSetMap) {
+      if (!remoteTestSetMap.has(uid)) {
+        conflictDetails.testSets.localOnly.push(localTestSet);
+      }
+    }
+
+    // 远程独有的testSet
+    for (const [uid, remoteTestSet] of remoteTestSetMap) {
+      if (!localTestSetMap.has(uid)) {
+        conflictDetails.testSets.remoteOnly.push(remoteTestSet);
+      }
+    }
+
+    // 修改冲突的testSet
+    for (const [uid, localTestSet] of localTestSetMap) {
+      const remoteTestSet = remoteTestSetMap.get(uid);
+      if (remoteTestSet) {
+        const lastBackupTestSet = lastBackupTestSetMap.get(uid);
+        const localModified = !lastBackupTestSet || JSON.stringify(localTestSet) !== JSON.stringify(lastBackupTestSet);
+        const remoteModified = !lastBackupTestSet || JSON.stringify(remoteTestSet) !== JSON.stringify(lastBackupTestSet);
+
+        if (localModified && remoteModified && JSON.stringify(localTestSet) !== JSON.stringify(remoteTestSet)) {
+          conflictDetails.testSets.modified.push({ local: localTestSet, remote: remoteTestSet });
+        }
+      }
+    }
+
     const hasConflict =
       conflictDetails.projects.localOnly.length > 0 ||
       conflictDetails.projects.remoteOnly.length > 0 ||
-      conflictDetails.projects.modified.length > 0;
+      conflictDetails.projects.modified.length > 0 ||
+      conflictDetails.testSets.localOnly.length > 0 ||
+      conflictDetails.testSets.remoteOnly.length > 0 ||
+      conflictDetails.testSets.modified.length > 0;
 
     return {
       hasConflict,

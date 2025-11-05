@@ -34,6 +34,7 @@ import { PromptTemplateSection } from "@/components/prompt-template-section";
 import { GenerationsSection } from "@/components/generations-section";
 import { PromptReviewSection } from "@/components/prompt-review-section";
 import { JSONImportDialog } from "@/components/json-import-dialog";
+import { GlobalDropZone } from "@/components/global-drop-zone";
 
 export default function Page() {
   const {
@@ -202,9 +203,10 @@ export default function Page() {
   );
 
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
+    <GlobalDropZone>
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset>
         {currentProject && (
           <>
             <DialogModelSettings
@@ -500,5 +502,6 @@ export default function Page() {
         )}
       </SidebarInset>
     </SidebarProvider>
+    </GlobalDropZone>
   );
 }

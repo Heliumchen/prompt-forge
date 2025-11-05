@@ -198,7 +198,7 @@ export const saveProjects = async (projects: Project[]): Promise<void> => {
 };
 
 // 简化的数据验证和修复函数
-const validateAndFixProject = (project: unknown): Project | null => {
+export const validateAndFixProject = (project: unknown): Project | null => {
   const validation = dataManager.validateData(project, (data): data is Project => {
     const proj = data as Record<string, unknown>;
     return !!(
