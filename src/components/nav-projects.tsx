@@ -194,8 +194,8 @@ export function NavProjects() {
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate">{project.name}</span>
                     <span className="truncate text-xs text-muted-foreground">
-                      {project.testSet?.testCases.length > 0 && (
-                        <> {project.testSet.testCases.length} Testcases</>
+                      {(project.testSet?.testCases?.length ?? 0) > 0 && (
+                        <> {project.testSet?.testCases?.length} Testcases</>
                       )}
                     </span>
                   </div>
