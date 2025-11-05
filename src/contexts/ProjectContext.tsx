@@ -13,6 +13,8 @@ import {
   updateVariable as updateVariableUtil,
   extractVariablesFromPrompts,
   synchronizeVariables,
+  createEmptyTestSet,
+  migrateProjectsWithTestSets,
 } from "@/lib/storage";
 import { processTemplate } from "@/lib/variableUtils";
 import { generateUid } from "@/lib/utils";
@@ -63,7 +65,34 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // 初始化加载数据
   useEffect(() => {
-    const loadedProjects = getProjects();
+    // Run migration first to ensure backward compatibility
+    console.log('[ProjectContext] Running migration for old projects...');
+    migrateProjectsWithTestSets();
+
+    // Reload projects after migration
+    let loadedProjects = getProjects();
+    console.log('[ProjectContext] Loaded projects after migration:', loadedProjects.length);
+
+    // Ensure all projects have a test set
+    let needsSave = false;
+    loadedProjects = loadedProjects.map(project => {
+      if (!project.testSet) {
+        console.log(`[ProjectContext] Creating empty test set for project: ${project.name}`);
+        needsSave = true;
+        return {
+          ...project,
+          testSet: createEmptyTestSet(project.name)
+        };
+      }
+      return project;
+    });
+
+    // Save projects if any were modified
+    if (needsSave) {
+      console.log('[ProjectContext] Saving projects with newly created test sets');
+      saveProjects(loadedProjects);
+    }
+
     setProjects(loadedProjects);
 
     // 如果有项目，默认选择第一个
@@ -109,6 +138,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
             modelConfig: version.data.modelConfig,
           },
         })),
+        // Use imported testSet if available, otherwise create empty one
+        testSet: projectData.testSet || createEmptyTestSet(name),
       };
 
       setProjects((prev) => [...prev, newProject]);
@@ -136,6 +167,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
             },
           },
         ],
+        // Always create a test set for new projects
+        testSet: createEmptyTestSet(name),
       };
 
       setProjects((prev) => [...prev, newProject]);

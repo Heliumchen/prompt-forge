@@ -48,9 +48,9 @@ export function ComparisonControls({
   
   const [selectedVersionForComparison, setSelectedVersionForComparison] = useState<number | null>(null);
 
-  // Get the associated project
-  const associatedProject = currentTestSet 
-    ? projects.find(p => p.uid === currentTestSet.associatedProjectUid)
+  // Get the associated project (find project that contains this testSet)
+  const associatedProject = currentTestSet
+    ? projects.find(p => p.testSet?.uid === currentTestSet.uid)
     : null;
 
   // Get available versions from the associated project

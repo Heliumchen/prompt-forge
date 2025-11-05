@@ -7,7 +7,6 @@ import {
 } from "lucide-react"
 
 import { NavProjects } from "@/components/nav-projects"
-import { NavTestSets } from "@/components/nav-test-sets"
 import { NavAPIKeysSettings } from "@/components/nav-api-keys-settings"
 import { NavBackupSettings } from "@/components/nav-backup-settings"
 import {
@@ -23,16 +22,13 @@ import {
 } from "@/components/ui/sidebar"
 import { ThemeToggle } from "./theme-toggle"
 import { useProjects } from "@/contexts/ProjectContext"
-import { useTestSets } from "@/contexts/TestSetContext"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { clearCurrentProject } = useProjects()
-  const { setCurrentTestSet } = useTestSets()
 
   const handleLogoClick = (e: React.MouseEvent) => {
     e.preventDefault()
     clearCurrentProject()
-    setCurrentTestSet(null)
   }
 
   return (
@@ -56,7 +52,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavProjects />
-        <NavTestSets />
       </SidebarContent>
       <SidebarFooter className="p-0">
         <SidebarGroup>

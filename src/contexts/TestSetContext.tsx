@@ -1,11 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState } from "react";
 import {
-  getTestSets,
-  saveTestSet as saveTestSetToStorage,
-  deleteTestSet as deleteTestSetFromStorage,
-  createTestSet,
   createTestResult,
   addTestCase as addTestCaseToTestSet,
   addTestCasesFromImport,
@@ -13,43 +9,43 @@ import {
   updateTestCase as updateTestCaseInTestSet,
   updateTestCaseMessages,
   deleteTestCase as deleteTestCaseFromTestSet,
-  updateTestResult,
+  updateTestResult as updateTestResultInSet,
   updateTestSetUIState,
   clearResultHistory,
   getResultStatistics,
-  testSetNameExists,
-  generateUniqueTestSetName,
   synchronizeTestSetVariables,
   detectVariableDifferences,
   validateSynchronizationOperation,
   VariableConflict,
   VariableSyncResult,
-  TestSet,
   TestCase,
   TestResult,
   TestSetUIState,
+  bulkDeleteTestCases as bulkDeleteTestCasesUtil,
+  testSetNameExists,
+  generateUniqueTestSetName,
 } from "@/lib/testSetStorage";
 import {
-  getProjectByUid,
   extractVariablesFromPrompts,
+  Project,
+  TestSet,
+  updateProjectTestSet,
 } from "@/lib/storage";
 import { processTemplate } from "@/lib/variableUtils";
 import { LLMClient } from "@/lib/openrouter";
 import { ChatMessage } from "@/lib/openrouter/types";
 import { getSecureApiKey } from "@/lib/security";
+import { useProjects } from "@/contexts/ProjectContext";
 
 
 
 interface TestSetContextType {
-  testSets: TestSet[];
+  projects: Project[];
   currentTestSet: TestSet | null;
   setCurrentTestSet: (testSet: TestSet | null) => void;
-  
-  // Test set CRUD operations
-  addTestSet: (name: string, associatedProjectUid: string) => TestSet;
-  updateTestSet: (testSet: TestSet) => void;
-  deleteTestSet: (uid: string) => void;
-  getTestSetsByProject: (projectUid: string) => TestSet[];
+
+  // Test set operations (now work through projects)
+  updateTestSet: (projectUid: string, testSet: TestSet) => void;
   
   // Test case management
   addTestCase: (testSetUid: string) => void;
@@ -99,169 +95,121 @@ const TestSetContext = createContext<TestSetContextType | undefined>(undefined);
 export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [testSets, setTestSets] = useState<TestSet[]>([]);
+  // Get projects from ProjectContext instead of maintaining separate state
+  const { projects, updateProject: updateProjectInContext } = useProjects();
   const [currentTestSet, setCurrentTestSet] = useState<TestSet | null>(null);
   const [batchExecutionControllers, setBatchExecutionControllers] = useState<Map<string, AbortController>>(new Map());
 
-  // Load test sets on initialization
-  useEffect(() => {
-    const loadedTestSets = getTestSets();
-    setTestSets(loadedTestSets);
+  // Compatibility layer: create a virtual testSets array from projects
+  const testSets: TestSet[] = projects
+    .filter(p => p.testSet)
+    .map(p => p.testSet!);
 
-    // Don't automatically select the first test set
-    // Let user explicitly choose which test set to work with
-  }, []);
+  // Helper function to find project by testSet uid
+  const findProjectByTestSetUid = (testSetUid: string): Project | undefined => {
+    return projects.find(p => p.testSet?.uid === testSetUid);
+  };
 
-  // Helper function to update test sets state and sync with current test set
-  const updateTestSetsState = (updatedTestSets: TestSet[]) => {
-    setTestSets(updatedTestSets);
-    
+  // Helper function to update project and sync state
+  const updateProjectState = (updatedProject: Project) => {
+    // Use ProjectContext's updateProject to ensure single source of truth
+    updateProjectInContext(updatedProject);
+
     // Update current test set if it was modified
-    if (currentTestSet) {
-      const updatedCurrentTestSet = updatedTestSets.find(ts => ts.uid === currentTestSet.uid);
-      if (updatedCurrentTestSet) {
-        setCurrentTestSet(updatedCurrentTestSet);
-      } else {
-        // Current test set was deleted
-        setCurrentTestSet(null);
-      }
+    if (currentTestSet && updatedProject.testSet?.uid === currentTestSet.uid) {
+      setCurrentTestSet(updatedProject.testSet);
     }
-    
-    // 触发数据变更事件用于自动备份
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('promptforge:datachange'));
-    }, 100);
   };
 
-  // Test set CRUD operations
-  const addTestSet = (name: string, associatedProjectUid: string): TestSet => {
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      throw new Error('Test set name is required');
+  // Update test set for a project
+  const updateTestSet = (projectUid: string, testSet: TestSet) => {
+    const project = projects.find(p => p.uid === projectUid);
+    if (!project) {
+      throw new Error('Project not found');
     }
 
-    if (!associatedProjectUid || typeof associatedProjectUid !== 'string') {
-      throw new Error('Associated project UID is required');
-    }
-
-    // Ensure unique name
-    const uniqueName = generateUniqueTestSetName(name.trim(), associatedProjectUid);
-    const newTestSet = createTestSet(uniqueName, associatedProjectUid);
-    
-    saveTestSetToStorage(newTestSet);
-    const updatedTestSets = [...testSets, newTestSet];
-    updateTestSetsState(updatedTestSets);
-    
-    return newTestSet;
-  };
-
-  const updateTestSet = (updatedTestSet: TestSet) => {
-    if (!updatedTestSet || !updatedTestSet.uid) {
-      throw new Error('Invalid test set');
-    }
-
-    saveTestSetToStorage(updatedTestSet);
-    const updatedTestSets = testSets.map(ts => 
-      ts.uid === updatedTestSet.uid ? updatedTestSet : ts
-    );
-    updateTestSetsState(updatedTestSets);
-  };
-
-  const deleteTestSet = (uid: string) => {
-    if (!uid || typeof uid !== 'string') {
-      throw new Error('Test set UID is required');
-    }
-
-    deleteTestSetFromStorage(uid);
-    const updatedTestSets = testSets.filter(ts => ts.uid !== uid);
-    updateTestSetsState(updatedTestSets);
-  };
-
-  const getTestSetsByProjectFn = (projectUid: string): TestSet[] => {
-    if (!projectUid || typeof projectUid !== 'string') {
-      return [];
-    }
-
-    return testSets.filter(ts => ts.associatedProjectUid === projectUid);
+    const updatedProject = updateProjectTestSet(project, testSet);
+    updateProjectState(updatedProject);
   };
 
   // Test case management
   const addTestCase = (testSetUid: string) => {
-    const testSet = testSets.find(ts => ts.uid === testSetUid);
-    if (!testSet) {
+    const project = findProjectByTestSetUid(testSetUid);
+    if (!project || !project.testSet) {
       throw new Error('Test set not found');
     }
 
-    const updatedTestSet = addTestCaseToTestSet(testSet);
-    updateTestSet(updatedTestSet);
+    const updatedTestSet = addTestCaseToTestSet(project.testSet);
+    updateTestSet(project.uid, updatedTestSet);
   };
 
   const importTestCases = (
-    testSetUid: string, 
+    testSetUid: string,
     testCasesData: Array<{
-      variableValues: Record<string, string>; 
+      variableValues: Record<string, string>;
       messages?: Array<{role: 'user' | 'assistant', content: string}>
     }>
   ) => {
-    const testSet = testSets.find(ts => ts.uid === testSetUid);
-    if (!testSet) {
+    const project = findProjectByTestSetUid(testSetUid);
+    if (!project || !project.testSet) {
       throw new Error('Test set not found');
     }
 
-    const updatedTestSet = addTestCasesFromImport(testSet, testCasesData);
-    updateTestSet(updatedTestSet);
+    const updatedTestSet = addTestCasesFromImport(project.testSet, testCasesData);
+    updateTestSet(project.uid, updatedTestSet);
   };
 
   const duplicateTestCase = (testSetUid: string, caseId: string) => {
-    const testSet = testSets.find(ts => ts.uid === testSetUid);
-    if (!testSet) {
+    const project = findProjectByTestSetUid(testSetUid);
+    if (!project || !project.testSet) {
       throw new Error('Test set not found');
     }
 
-    const updatedTestSet = duplicateTestCaseInTestSet(testSet, caseId);
-    updateTestSet(updatedTestSet);
+    const updatedTestSet = duplicateTestCaseInTestSet(project.testSet, caseId);
+    updateTestSet(project.uid, updatedTestSet);
   };
 
   const updateTestCase = (
-    testSetUid: string, 
-    caseId: string, 
+    testSetUid: string,
+    caseId: string,
     variableValues: Record<string, string>
   ) => {
-    const testSet = testSets.find(ts => ts.uid === testSetUid);
-    if (!testSet) {
+    const project = findProjectByTestSetUid(testSetUid);
+    if (!project || !project.testSet) {
       throw new Error('Test set not found');
     }
 
-    const updatedTestSet = updateTestCaseInTestSet(testSet, caseId, variableValues);
-    updateTestSet(updatedTestSet);
+    const updatedTestSet = updateTestCaseInTestSet(project.testSet, caseId, variableValues);
+    updateTestSet(project.uid, updatedTestSet);
   };
 
   const updateTestCaseMessagesFn = (
-    testSetUid: string, 
-    caseId: string, 
+    testSetUid: string,
+    caseId: string,
     messages: Array<{role: 'user' | 'assistant', content: string}>
   ) => {
-    const testSet = testSets.find(ts => ts.uid === testSetUid);
-    if (!testSet) {
+    const project = findProjectByTestSetUid(testSetUid);
+    if (!project || !project.testSet) {
       throw new Error('Test set not found');
     }
 
-    const updatedTestSet = updateTestCaseMessages(testSet, caseId, messages);
-    updateTestSet(updatedTestSet);
+    const updatedTestSet = updateTestCaseMessages(project.testSet, caseId, messages);
+    updateTestSet(project.uid, updatedTestSet);
   };
 
   const deleteTestCase = (testSetUid: string, caseId: string) => {
-    const testSet = testSets.find(ts => ts.uid === testSetUid);
-    if (!testSet) {
+    const project = findProjectByTestSetUid(testSetUid);
+    if (!project || !project.testSet) {
       throw new Error('Test set not found');
     }
 
-    const updatedTestSet = deleteTestCaseFromTestSet(testSet, caseId);
-    updateTestSet(updatedTestSet);
+    const updatedTestSet = deleteTestCaseFromTestSet(project.testSet, caseId);
+    updateTestSet(project.uid, updatedTestSet);
   };
 
   const bulkDeleteTestCases = (testSetUid: string, caseIds: string[]) => {
-    const testSet = testSets.find(ts => ts.uid === testSetUid);
-    if (!testSet) {
+    const project = findProjectByTestSetUid(testSetUid);
+    if (!project || !project.testSet) {
       throw new Error('Test set not found');
     }
 
@@ -269,22 +217,14 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
       throw new Error('Case IDs must be a non-empty array');
     }
 
-    // Filter out the test cases to delete
-    const updatedTestCases = testSet.testCases.filter(tc => !caseIds.includes(tc.id));
-    
-    const updatedTestSet = {
-      ...testSet,
-      testCases: updatedTestCases,
-      updatedAt: new Date().toISOString()
-    };
-
-    updateTestSet(updatedTestSet);
+    const updatedTestSet = bulkDeleteTestCasesUtil(project.testSet, caseIds);
+    updateTestSet(project.uid, updatedTestSet);
   };
 
   // Variable synchronization
   const syncVariablesFromVersion = (
-    testSetUid: string, 
-    projectUid: string, 
+    testSetUid: string,
+    projectUid: string,
     versionId: number
   ): VariableSyncResult => {
     const testSet = testSets.find(ts => ts.uid === testSetUid);
@@ -292,7 +232,7 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
       throw new Error('Test set not found');
     }
 
-    const project = getProjectByUid(projectUid);
+    const project = projects.find(p => p.uid === projectUid);
     if (!project) {
       throw new Error('Project not found');
     }
@@ -304,14 +244,14 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // Extract variables from the version's prompts
     const versionVariables = extractVariablesFromPrompts(version.data.prompts || []);
-    
+
     // Use enhanced synchronization logic
     return synchronizeTestSetVariables(testSet, versionVariables);
   };
 
   const detectVariableDifferencesFn = (
-    testSetUid: string, 
-    projectUid: string, 
+    testSetUid: string,
+    projectUid: string,
     versionId: number
   ): VariableConflict[] => {
     const testSet = testSets.find(ts => ts.uid === testSetUid);
@@ -319,7 +259,7 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
       throw new Error('Test set not found');
     }
 
-    const project = getProjectByUid(projectUid);
+    const project = projects.find(p => p.uid === projectUid);
     if (!project) {
       throw new Error('Project not found');
     }
@@ -331,14 +271,14 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // Extract variables from the version's prompts
     const versionVariables = extractVariablesFromPrompts(version.data.prompts || []);
-    
+
     // Detect differences using enhanced logic
     return detectVariableDifferences(testSet, versionVariables);
   };
 
   const validateSynchronizationOperationFn = (
-    testSetUid: string, 
-    projectUid: string, 
+    testSetUid: string,
+    projectUid: string,
     versionId: number
   ): void => {
     const testSet = testSets.find(ts => ts.uid === testSetUid);
@@ -346,7 +286,7 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
       throw new Error('Test set not found');
     }
 
-    const project = getProjectByUid(projectUid);
+    const project = projects.find(p => p.uid === projectUid);
     if (!project) {
       throw new Error('Project not found');
     }
@@ -358,7 +298,7 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // Extract variables from the version's prompts
     const versionVariables = extractVariablesFromPrompts(version.data.prompts || []);
-    
+
     // Validate synchronization operation
     validateSynchronizationOperation(testSet, versionVariables);
   };
@@ -426,7 +366,7 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
       throw new Error('Test case not found');
     }
 
-    const project = getProjectByUid(testSet.associatedProjectUid);
+    const project = findProjectByTestSetUid(testSetUid);
     if (!project) {
       throw new Error('Associated project not found');
     }
@@ -646,7 +586,7 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
 
     try {
       // Validate prerequisites before starting
-      const project = getProjectByUid(testSet.associatedProjectUid);
+      const project = findProjectByTestSetUid(testSetUid);
       if (!project) {
         throw new Error('Associated project not found');
       }
@@ -760,58 +700,41 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Result management
   const updateTestResultFn = (
-    testSetUid: string, 
-    caseId: string, 
-    versionIdentifier: string, 
+    testSetUid: string,
+    caseId: string,
+    versionIdentifier: string,
     result: TestResult
   ) => {
-    // Use functional update to avoid race conditions during batch execution
-    setTestSets(prevTestSets => {
-      const testSetIndex = prevTestSets.findIndex(ts => ts.uid === testSetUid);
-      if (testSetIndex === -1) {
-        throw new Error('Test set not found');
-      }
-
-      const testSet = prevTestSets[testSetIndex];
-      const updatedTestSet = updateTestResult(testSet, caseId, versionIdentifier, result);
-      
-      // Save to localStorage
-      saveTestSetToStorage(updatedTestSet);
-      
-      // Update the test sets array
-      const newTestSets = [...prevTestSets];
-      newTestSets[testSetIndex] = updatedTestSet;
-      
-      return newTestSets;
-    });
-    
-    // Update currentTestSet if it matches the updated test set
-    setCurrentTestSet(prevCurrentTestSet => {
-      if (prevCurrentTestSet && prevCurrentTestSet.uid === testSetUid) {
-        const updatedTestSet = updateTestResult(prevCurrentTestSet, caseId, versionIdentifier, result);
-        return updatedTestSet;
-      }
-      return prevCurrentTestSet;
-    });
-  };
-
-
-
-  const clearResultHistoryFn = (testSetUid: string, caseId: string, versionIdentifier: string) => {
-    const testSet = testSets.find(ts => ts.uid === testSetUid);
-    if (!testSet) {
+    // Find the project and update it
+    const project = projects.find(p => p.testSet?.uid === testSetUid);
+    if (!project || !project.testSet) {
       throw new Error('Test set not found');
     }
 
-    const updatedTestSet = clearResultHistory(testSet, caseId, versionIdentifier);
-    updateTestSet(updatedTestSet);
+    const updatedTestSet = updateTestResultInSet(project.testSet, caseId, versionIdentifier, result);
+    const updatedProject = updateProjectTestSet(project, updatedTestSet);
+
+    // Use updateProjectState to update via ProjectContext
+    updateProjectState(updatedProject);
+  };
+
+  const clearResultHistoryFn = (testSetUid: string, caseId: string, versionIdentifier: string) => {
+    const project = findProjectByTestSetUid(testSetUid);
+    if (!project || !project.testSet) {
+      throw new Error('Test set not found');
+    }
+
+    const updatedTestSet = clearResultHistory(project.testSet, caseId, versionIdentifier);
+    updateTestSet(project.uid, updatedTestSet);
   };
 
   const getResultStatisticsFn = (testSetUid: string, versionIdentifier?: string) => {
-    const testSet = testSets.find(ts => ts.uid === testSetUid);
-    if (!testSet) {
+    const project = findProjectByTestSetUid(testSetUid);
+    if (!project || !project.testSet) {
       throw new Error('Test set not found');
     }
+
+    const testSet = project.testSet;
 
     return getResultStatistics(testSet, versionIdentifier);
   };
@@ -839,23 +762,20 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // UI state management
   const updateTestSetUIStateFn = (testSetUid: string, uiState: Partial<TestSetUIState>) => {
-    const testSet = testSets.find(ts => ts.uid === testSetUid);
-    if (!testSet) {
+    const project = findProjectByTestSetUid(testSetUid);
+    if (!project || !project.testSet) {
       throw new Error('Test set not found');
     }
 
-    const updatedTestSet = updateTestSetUIState(testSet, uiState);
-    updateTestSet(updatedTestSet);
+    const updatedTestSet = updateTestSetUIState(project.testSet, uiState);
+    updateTestSet(project.uid, updatedTestSet);
   };
 
   const value: TestSetContextType = {
-    testSets,
+    projects,
     currentTestSet,
     setCurrentTestSet,
-    addTestSet,
     updateTestSet,
-    deleteTestSet,
-    getTestSetsByProject: getTestSetsByProjectFn,
     addTestCase,
     importTestCases,
     duplicateTestCase,

@@ -46,6 +46,37 @@ export interface Version {
   data: VersionData;
 }
 
+// Test Set types (embedded in Project)
+export interface TestResult {
+  id: string;
+  content: string;
+  timestamp: string;
+  status: 'pending' | 'running' | 'completed' | 'error';
+  error?: string;
+  executionTime?: number;
+}
+
+export interface TestCase {
+  id: string;
+  variableValues: Record<string, string>;
+  messages?: Array<{role: 'user' | 'assistant', content: string}>;
+  results: Record<string, TestResult>; // version identifier -> result
+}
+
+export interface TestSetUIState {
+  selectedComparisonVersion?: string;
+}
+
+export interface TestSet {
+  uid: string;
+  name: string;
+  variableNames: string[];
+  testCases: TestCase[];
+  uiState?: TestSetUIState;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // 修改后的Project接口
 export interface Project {
   uid: string;
@@ -53,6 +84,7 @@ export interface Project {
   icon?: string;
   currentVersion: number;  // 当前使用的版本ID
   versions: Version[];     // 所有版本历史
+  testSet?: TestSet;       // 嵌入的测试集（可选）
 }
 
 import { dataManager } from './data-manager';
@@ -214,7 +246,8 @@ const validateAndFixProject = (project: unknown): Project | null => {
     name: proj.name,
     icon: proj.icon || '📝',
     currentVersion: validCurrentVersion,
-    versions: fixedVersions
+    versions: fixedVersions,
+    testSet: proj.testSet
   };
 };
 
@@ -448,4 +481,140 @@ export const synchronizeVariables = (project: Project): Project => {
   const mergedVariables = mergeVariables(detectedNames, existingVariables);
 
   return updateCurrentVersion(project, { variables: mergedVariables });
+};
+
+// ========== TestSet Management Functions ==========
+
+/**
+ * Creates an empty test set for a project
+ * @param projectName - Name of the project to base the test set name on
+ * @returns New empty TestSet object
+ */
+export const createEmptyTestSet = (projectName: string): TestSet => {
+  const now = dataManager.getCurrentTimestamp();
+  // Dynamic import to avoid circular dependency
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { generateUid } = require('./utils');
+
+  return {
+    uid: generateUid(),
+    name: `${projectName} Tests`,
+    variableNames: [],
+    testCases: [],
+    uiState: {},
+    createdAt: now,
+    updatedAt: now
+  };
+};
+
+/**
+ * Migrates legacy TestSet data structure to new embedded format
+ * This function is called during data loading to ensure backward compatibility
+ * @returns void
+ */
+export const migrateProjectsWithTestSets = (): void => {
+  try {
+    // Get legacy test sets if they exist
+    const legacyTestSetsData = localStorage.getItem('prompt-forge-test-sets');
+    if (!legacyTestSetsData) {
+      console.log('[Migration] No legacy test sets found, skipping migration');
+      return;
+    }
+
+    console.log('[Migration] Found legacy test sets data, starting migration...');
+
+    // Get current projects
+    const projects = getProjects();
+    console.log(`[Migration] Found ${projects.length} projects`);
+
+    // Parse legacy test sets
+    const parseResult = dataManager.parseJSON<Array<{
+      uid: string;
+      name: string;
+      associatedProjectUid: string;
+      variableNames: string[];
+      testCases: TestCase[];
+      uiState?: TestSetUIState;
+      createdAt: string;
+      updatedAt: string;
+    }>>(legacyTestSetsData, () => []);
+
+    if (!parseResult.isValid || !parseResult.data) {
+      console.warn('Failed to parse legacy test sets data');
+      return;
+    }
+
+    const legacyTestSets = parseResult.data;
+
+    // Group test sets by project
+    const testSetsByProject = new Map<string, typeof legacyTestSets>();
+    legacyTestSets.forEach(ts => {
+      if (!testSetsByProject.has(ts.associatedProjectUid)) {
+        testSetsByProject.set(ts.associatedProjectUid, []);
+      }
+      testSetsByProject.get(ts.associatedProjectUid)!.push(ts);
+    });
+
+    // Migrate projects
+    const migratedProjects = projects.map(project => {
+      // Skip if already has embedded test set
+      if (project.testSet) {
+        return project;
+      }
+
+      const projectTestSets = testSetsByProject.get(project.uid) || [];
+
+      if (projectTestSets.length === 0) {
+        // No test set found, create empty one
+        return {
+          ...project,
+          testSet: createEmptyTestSet(project.name)
+        };
+      }
+
+      // Take the first test set and remove associatedProjectUid
+      const firstTestSet = projectTestSets[0];
+      const { associatedProjectUid, ...cleanTestSet } = firstTestSet;
+
+      if (projectTestSets.length > 1) {
+        console.warn(`Project "${project.name}" has ${projectTestSets.length} test sets. Only keeping the first one: "${firstTestSet.name}"`);
+      }
+
+      return {
+        ...project,
+        testSet: cleanTestSet as TestSet
+      };
+    });
+
+    // Count how many projects were actually migrated
+    const migratedCount = migratedProjects.filter((p, i) => p !== projects[i]).length;
+    console.log(`[Migration] Migrated ${migratedCount} projects from legacy test sets`);
+
+    // Save migrated projects
+    saveProjects(migratedProjects);
+
+    // Remove legacy test sets from localStorage
+    localStorage.removeItem('prompt-forge-test-sets');
+    console.log('[Migration] Removed legacy test sets from localStorage');
+
+    console.log(`[Migration] Completed: ${migratedProjects.length} projects now have test sets`);
+  } catch (error) {
+    console.error('Error during migration:', error);
+  }
+};
+
+/**
+ * Updates the test set for a project
+ * @param project - Project to update
+ * @param testSet - New test set data
+ * @returns Updated project
+ */
+export const updateProjectTestSet = (project: Project, testSet: TestSet): Project => {
+  return {
+    ...project,
+    testSet: {
+      ...testSet,
+      updatedAt: dataManager.getCurrentTimestamp()
+    }
+  };
 }; 

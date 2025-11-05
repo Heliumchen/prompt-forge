@@ -21,6 +21,7 @@ import {
   mergeTestSetVariables,
 } from "@/lib/testSetStorage";
 import { useTestSets } from "@/contexts/TestSetContext";
+import { useProjects } from "@/contexts/ProjectContext";
 
 interface CSVImportDialogProps {
   isOpen: boolean;
@@ -51,7 +52,11 @@ export function CSVImportDialog({
   testSet,
 }: CSVImportDialogProps) {
   const { updateTestSet } = useTestSets();
+  const { projects } = useProjects();
   const [isUploading, setIsUploading] = useState(false);
+
+  // Find the project that contains this testSet
+  const project = projects.find(p => p.testSet?.uid === testSet.uid);
   const [csvData, setCSVData] = useState<ParsedCSVData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -407,7 +412,10 @@ export function CSVImportDialog({
       };
 
       // Update the test set
-      updateTestSet(updatedTestSet);
+      if (!project) {
+        throw new Error('Project not found for this test set');
+      }
+      updateTestSet(project.uid, updatedTestSet);
 
       toast.success(
         `Successfully imported ${csvData.uniqueRows.length} test cases${csvData.duplicates > 0 ? ` (${csvData.duplicates} duplicates skipped)` : ""}`,

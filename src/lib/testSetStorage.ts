@@ -25,10 +25,11 @@ export interface TestSetUIState {
 }
 
 // Test set contains the complete test configuration and data
+// Note: associatedProjectUid is deprecated - TestSet is now embedded in Project
 export interface TestSet {
   uid: string;
   name: string;
-  associatedProjectUid: string;
+  associatedProjectUid?: string; // DEPRECATED: Only for backward compatibility during migration
   variableNames: string[]; // ordered list of variable names for table columns (defines table structure)
   testCases: TestCase[];
   uiState?: TestSetUIState; // UI preferences and state
@@ -135,8 +136,9 @@ export const validateTestSet = (testSet: unknown): testSet is TestSet => {
     throw new Error('Test set must have a valid name');
   }
 
-  if (!ts.associatedProjectUid || typeof ts.associatedProjectUid !== 'string') {
-    throw new Error('Test set must have a valid associatedProjectUid');
+  // associatedProjectUid is now optional (deprecated - test sets are embedded in projects)
+  if (ts.associatedProjectUid !== undefined && typeof ts.associatedProjectUid !== 'string') {
+    throw new Error('Test set associatedProjectUid must be a string if provided');
   }
 
   if (!Array.isArray(ts.variableNames)) {

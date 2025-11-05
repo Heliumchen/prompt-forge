@@ -4,15 +4,13 @@
  */
 
 import { Project, getProjects, saveProjects } from './storage';
-import { TestSet, getTestSets, saveTestSets } from './testSetStorage';
 import { GitHubSyncService } from './github-sync';
 
 // 备份数据结构
 export interface BackupData {
   version: string;
   timestamp: string;
-  projects: Project[];
-  testSets: TestSet[];
+  projects: Project[]; // Projects now contain embedded testSet
 }
 
 // 备份配置
@@ -43,11 +41,6 @@ export interface ConflictInfo {
       remoteOnly: Project[];
       modified: { local: Project; remote: Project }[];
     };
-    testSets: {
-      localOnly: TestSet[];
-      remoteOnly: TestSet[];
-      modified: { local: TestSet; remote: TestSet }[];
-    };
   };
 }
 
@@ -60,7 +53,7 @@ export class BackupManager {
   private syncService: GitHubSyncService | null = null;
   private syncStatusListeners: ((status: SyncStatus) => void)[] = [];
   private autoBackupTimer: NodeJS.Timeout | null = null;
-  private readonly currentVersion = '1.0.0';
+  private readonly currentVersion = '2.0.0'; // Updated version for embedded testSet structure
 
   constructor() {
     this.initializeFromConfig();
@@ -155,13 +148,11 @@ export class BackupManager {
    */
   createBackupData(): BackupData {
     const projects = getProjects();
-    const testSets = getTestSets();
-    
+
     return {
       version: this.currentVersion,
       timestamp: new Date().toISOString(),
-      projects,
-      testSets
+      projects // Projects already contain embedded testSet
     };
   }
 
@@ -264,24 +255,18 @@ export class BackupManager {
    */
   private detectConflicts(remoteData: BackupData): ConflictInfo {
     const localProjects = getProjects();
-    const localTestSets = getTestSets();
     const lastBackupJson = typeof window !== 'undefined' ? localStorage.getItem(LAST_BACKUP_DATA_KEY) : null;
     const lastBackupData: BackupData | null = lastBackupJson ? JSON.parse(lastBackupJson) : null;
-    
+
     const conflictDetails = {
       projects: {
         localOnly: [] as Project[],
         remoteOnly: [] as Project[],
         modified: [] as { local: Project; remote: Project }[]
-      },
-      testSets: {
-        localOnly: [] as TestSet[],
-        remoteOnly: [] as TestSet[],
-        modified: [] as { local: TestSet; remote: TestSet }[]
       }
     };
 
-    // 检测项目冲突
+    // 检测项目冲突（包含嵌入的testSet）
     const localProjectMap = new Map(localProjects.map(p => [p.uid, p]));
     const remoteProjectMap = new Map(remoteData.projects.map(p => [p.uid, p]));
     const lastBackupProjectMap = lastBackupData ? new Map(lastBackupData.projects.map(p => [p.uid, p])) : new Map();
@@ -300,57 +285,24 @@ export class BackupManager {
       }
     }
 
-    // 修改冲突的项目
+    // 修改冲突的项目（包含testSet的比较）
     for (const [uid, localProject] of localProjectMap) {
       const remoteProject = remoteProjectMap.get(uid);
       if (remoteProject) {
         const lastBackupProject = lastBackupProjectMap.get(uid);
         const localModified = !lastBackupProject || JSON.stringify(localProject) !== JSON.stringify(lastBackupProject);
         const remoteModified = !lastBackupProject || JSON.stringify(remoteProject) !== JSON.stringify(lastBackupProject);
-        
+
         if (localModified && remoteModified && JSON.stringify(localProject) !== JSON.stringify(remoteProject)) {
           conflictDetails.projects.modified.push({ local: localProject, remote: remoteProject });
         }
       }
     }
 
-    // 检测测试集冲突（类似逻辑）
-    const localTestSetMap = new Map(localTestSets.map(ts => [ts.uid, ts]));
-    const remoteTestSetMap = new Map(remoteData.testSets.map(ts => [ts.uid, ts]));
-    const lastBackupTestSetMap = lastBackupData ? new Map(lastBackupData.testSets.map(ts => [ts.uid, ts])) : new Map();
-
-    for (const [uid, localTestSet] of localTestSetMap) {
-      if (!remoteTestSetMap.has(uid)) {
-        conflictDetails.testSets.localOnly.push(localTestSet);
-      }
-    }
-
-    for (const [uid, remoteTestSet] of remoteTestSetMap) {
-      if (!localTestSetMap.has(uid)) {
-        conflictDetails.testSets.remoteOnly.push(remoteTestSet);
-      }
-    }
-
-    for (const [uid, localTestSet] of localTestSetMap) {
-      const remoteTestSet = remoteTestSetMap.get(uid);
-      if (remoteTestSet) {
-        const lastBackupTestSet = lastBackupTestSetMap.get(uid);
-        const localModified = !lastBackupTestSet || JSON.stringify(localTestSet) !== JSON.stringify(lastBackupTestSet);
-        const remoteModified = !lastBackupTestSet || JSON.stringify(remoteTestSet) !== JSON.stringify(lastBackupTestSet);
-        
-        if (localModified && remoteModified && JSON.stringify(localTestSet) !== JSON.stringify(remoteTestSet)) {
-          conflictDetails.testSets.modified.push({ local: localTestSet, remote: remoteTestSet });
-        }
-      }
-    }
-
-    const hasConflict = 
+    const hasConflict =
       conflictDetails.projects.localOnly.length > 0 ||
       conflictDetails.projects.remoteOnly.length > 0 ||
-      conflictDetails.projects.modified.length > 0 ||
-      conflictDetails.testSets.localOnly.length > 0 ||
-      conflictDetails.testSets.remoteOnly.length > 0 ||
-      conflictDetails.testSets.modified.length > 0;
+      conflictDetails.projects.modified.length > 0;
 
     return {
       hasConflict,
@@ -369,40 +321,27 @@ export class BackupManager {
     if (mergeConflicts) {
       // 合并策略：保留所有数据，对于重复的UID使用远程版本
       const localProjects = getProjects();
-      const localTestSets = getTestSets();
-      
+
       const mergedProjects = [...backupData.projects];
       const remoteProjectUids = new Set(backupData.projects.map(p => p.uid));
-      
-      // 添加本地独有的项目
+
+      // 添加本地独有的项目（包含其嵌入的testSet）
       for (const localProject of localProjects) {
         if (!remoteProjectUids.has(localProject.uid)) {
           mergedProjects.push(localProject);
         }
       }
-      
-      const mergedTestSets = [...backupData.testSets];
-      const remoteTestSetUids = new Set(backupData.testSets.map(ts => ts.uid));
-      
-      // 添加本地独有的测试集
-      for (const localTestSet of localTestSets) {
-        if (!remoteTestSetUids.has(localTestSet.uid)) {
-          mergedTestSets.push(localTestSet);
-        }
-      }
-      
-      console.log(`Merging data: ${mergedProjects.length} projects, ${mergedTestSets.length} test sets`);
-      // Note: saveProjects and saveTestSets are now async, but we don't await here to avoid blocking
-      // The save operations will complete in the background
+
+      console.log(`Merging data: ${mergedProjects.length} projects`);
+      // Note: saveProjects is async, but we don't await here to avoid blocking
+      // The save operation will complete in the background
       saveProjects(mergedProjects).catch(console.error);
-      saveTestSets(mergedTestSets).catch(console.error);
     } else {
       // 完全替换本地数据
-      console.log(`Replacing local data with backup: ${backupData.projects.length} projects, ${backupData.testSets.length} test sets`);
-      // Note: saveProjects and saveTestSets are now async, but we don't await here to avoid blocking
-      // The save operations will complete in the background
+      console.log(`Replacing local data with backup: ${backupData.projects.length} projects`);
+      // Note: saveProjects is async, but we don't await here to avoid blocking
+      // The save operation will complete in the background
       saveProjects(backupData.projects).catch(console.error);
-      saveTestSets(backupData.testSets).catch(console.error);
     }
   }
 
@@ -410,11 +349,9 @@ export class BackupManager {
    * 检查版本兼容性
    */
   private isVersionCompatible(backupVersion: string): boolean {
-    // 简单的版本检查，可以根据需要扩展
-    const [backupMajor] = backupVersion.split('.').map(Number);
-    const [currentMajor] = this.currentVersion.split('.').map(Number);
-    
-    return backupMajor === currentMajor;
+    // Only accept version 2.0.0 (new format with embedded testSet)
+    // Old version 1.0.0 backups are not supported
+    return backupVersion === '2.0.0';
   }
 
   /**

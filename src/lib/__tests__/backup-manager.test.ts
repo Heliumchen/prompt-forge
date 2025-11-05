@@ -1,7 +1,16 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BackupManager, getBackupManager } from '../backup-manager';
 import { Project } from '../storage';
-import { TestSet } from '../testSetStorage';
+
+// Mock storage module
+vi.mock('../storage', async () => {
+  const actual = await vi.importActual<typeof import('../storage')>('../storage');
+  return {
+    ...actual,
+    getProjects: vi.fn(() => []),
+    saveProjects: vi.fn(() => Promise.resolve())
+  };
+});
 
 // Mock localStorage
 const localStorageMock = {
@@ -31,10 +40,10 @@ describe('BackupManager', () => {
   });
 
   describe('创建备份数据', () => {
-    it('should create backup data with projects and test sets', () => {
-      const manager = new BackupManager();
-      
-      // Mock getProjects and getTestSets
+    it('should create backup data with projects containing embedded test sets', async () => {
+      const { getProjects } = await import('../storage');
+
+      // Mock getProjects with embedded testSet
       const mockProjects: Project[] = [{
         uid: 'project-1',
         name: 'Test Project',
@@ -49,51 +58,42 @@ describe('BackupManager', () => {
             messages: [],
             variables: []
           }
-        }]
+        }],
+        testSet: {
+          uid: 'testset-1',
+          name: 'Test Set',
+          variableNames: ['var1'],
+          testCases: [],
+          createdAt: '2024-01-01T00:00:00.000Z',
+          updatedAt: '2024-01-01T00:00:00.000Z'
+        }
       }];
 
-      const mockTestSets: TestSet[] = [{
-        uid: 'testset-1',
-        name: 'Test Set',
-        associatedProjectUid: 'project-1',
-        variableNames: ['var1'],
-        testCases: [],
-        createdAt: '2024-01-01T00:00:00.000Z',
-        updatedAt: '2024-01-01T00:00:00.000Z'
-      }];
+      vi.mocked(getProjects).mockReturnValue(mockProjects);
 
-      // Mock the storage functions
-      vi.doMock('../storage', () => ({
-        getProjects: () => mockProjects
-      }));
-
-      vi.doMock('../testSetStorage', () => ({
-        getTestSets: () => mockTestSets
-      }));
-
+      const manager = new BackupManager();
       const backupData = manager.createBackupData();
 
-      expect(backupData.version).toBe('1.0.0');
+      expect(backupData.version).toBe('2.0.0');
       expect(backupData.timestamp).toBeDefined();
       expect(backupData.projects).toBeDefined();
-      expect(backupData.testSets).toBeDefined();
+      expect(backupData.projects[0].testSet).toBeDefined();
     });
   });
 
   describe('数据导出导入', () => {
     it('should export and import local data', () => {
       const manager = new BackupManager();
-      
+
       const mockBackupData = {
-        version: '1.0.0',
+        version: '2.0.0',
         timestamp: '2024-01-01T00:00:00.000Z',
-        projects: [],
-        testSets: []
+        projects: []
       };
 
       // Test export
       const exportedData = manager.exportLocalData();
-      expect(exportedData.version).toBe('1.0.0');
+      expect(exportedData.version).toBe('2.0.0');
 
       // Test import
       expect(() => {
@@ -103,12 +103,11 @@ describe('BackupManager', () => {
 
     it('should reject incompatible backup versions', () => {
       const manager = new BackupManager();
-      
+
       const incompatibleBackup = {
-        version: '2.0.0', // Incompatible major version
+        version: '1.0.0', // Old version is not compatible
         timestamp: '2024-01-01T00:00:00.000Z',
-        projects: [],
-        testSets: []
+        projects: []
       };
 
       expect(() => {

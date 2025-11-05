@@ -27,7 +27,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useProjects } from "@/contexts/ProjectContext";
-import { useTestSets } from "@/contexts/TestSetContext";
 import { Project } from "@/lib/storage";
 import { useState } from "react";
 import {
@@ -52,7 +51,6 @@ export function NavProjects() {
     deleteProject,
     updateProject,
   } = useProjects();
-  const { setCurrentTestSet } = useTestSets();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectIcon, setNewProjectIcon] = useState("Frame");
@@ -65,8 +63,6 @@ export function NavProjects() {
     const project = projects.find((p) => p.uid === projectUid);
     if (project) {
       setCurrentProject(project);
-      // Clear current test set when switching to project view
-      setCurrentTestSet(null);
     }
   };
 

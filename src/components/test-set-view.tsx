@@ -12,7 +12,7 @@ import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface TestSetViewProps {
-  testSetUid: string;
+  testSetUid?: string;
 }
 
 // Error boundary component for test set operations
@@ -67,6 +67,7 @@ class TestSetErrorBoundary extends React.Component<
 export function TestSetView({ testSetUid }: TestSetViewProps) {
   const {
     currentTestSet,
+    setCurrentTestSet,
     updateTestCase,
     updateTestCaseMessages,
     importTestCases,
@@ -77,7 +78,7 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
     runAllTests: _runAllTests,
     isBatchRunning,
   } = useTestSets();
-  const { projects } = useProjects();
+  const { projects, currentProject, updateProject } = useProjects();
 
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -89,7 +90,7 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
   const associatedProject = useMemo(
     () =>
       currentTestSet
-        ? projects.find((p) => p.uid === currentTestSet.associatedProjectUid)
+        ? projects.find((p) => p.testSet?.uid === currentTestSet.uid)
         : null,
     [currentTestSet, projects],
   );
@@ -364,6 +365,48 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
   // Add keyboard shortcut support for JSON import
   useKeyboardShortcuts(false, () => {}, handleJSONPaste);
 
+  // Auto-create test set if not exists
+  useEffect(() => {
+    if (!testSetUid && currentProject && !currentProject.testSet) {
+      // Import createEmptyTestSet function
+      const createTestSet = async () => {
+        try {
+          const { createEmptyTestSet } = await import("@/lib/storage");
+          const newTestSet = createEmptyTestSet(currentProject.name);
+
+          // Update project with new test set
+          const updatedProject = {
+            ...currentProject,
+            testSet: newTestSet,
+          };
+          updateProject(updatedProject);
+
+          // Set current test set immediately
+          setCurrentTestSet(newTestSet);
+
+          toast.success("Test set created");
+        } catch (error) {
+          console.error("Failed to create test set:", error);
+          toast.error("Failed to create test set");
+        }
+      };
+
+      createTestSet();
+    }
+  }, [testSetUid, currentProject, updateProject, setCurrentTestSet]);
+
+  // Show loading state while creating test set
+  if (!testSetUid) {
+    return (
+      <div className="flex items-center justify-center h-full text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Creating test set...
+        </div>
+      </div>
+    );
+  }
+
   // Show error state
   if (error) {
     return (
@@ -446,7 +489,7 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
           onClose={() => setIsJSONImportOpen(false)}
           onOpenChange={setIsJSONImportOpen}
           jsonData={jsonImportData}
-          associatedProjectUid={currentTestSet.associatedProjectUid}
+          associatedProjectUid={associatedProject?.uid || ""}
           onImport={handleJSONImport}
         />
       )}
