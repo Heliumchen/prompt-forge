@@ -128,7 +128,7 @@ export function NavProjects() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${project.name.replace(/[<>:"/\\|?*]/g, '_')}.json`;
+      a.download = `${project.name.replace(/[<>:"/\\|?*]/g, "_")}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -191,7 +191,14 @@ export function NavProjects() {
                   }
                 >
                   <FileText />
-                  <span>{project.name}</span>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate">{project.name}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {project.testSet?.testCases.length > 0 && (
+                        <> {project.testSet.testCases.length} Testcases</>
+                      )}
+                    </span>
+                  </div>
                 </SidebarMenuButton>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
