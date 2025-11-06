@@ -122,7 +122,7 @@ export function TestSetTable({
 
   // Get the associated project for version selection
   const associatedProject = projects.find(
-    (p) => p.uid === testSet.associatedProjectUid,
+    (p) => p.testSet?.uid === testSet.uid,
   );
   const availableVersions = associatedProject?.versions || [];
 
