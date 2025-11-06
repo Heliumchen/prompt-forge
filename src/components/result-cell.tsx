@@ -28,19 +28,18 @@ export function ResultCell({
   comparisonVersionId,
   isComparisonColumn = false,
 }: ResultCellProps) {
-  const [isRunning, setIsRunning] = useState(false);
   const [showDiffDialog, setShowDiffDialog] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   const handleRunTest = async () => {
-    if (isRunning) return;
-    
-    setIsRunning(true);
+    setIsRetrying(true);
     try {
       await onRunTest();
     } catch (error) {
       console.error('Test execution failed:', error);
     } finally {
-      setIsRunning(false);
+      // Keep the retrying state for a moment to show feedback
+      setTimeout(() => setIsRetrying(false), 500);
     }
   };
 
@@ -52,29 +51,18 @@ export function ResultCell({
           variant="outline"
           size="sm"
           onClick={handleRunTest}
-          disabled={isRunning}
           className="flex items-center gap-2"
           aria-label={`Run test case ${testCaseIndex + 1}`}
         >
-          {isRunning ? (
-            <>
-              <Clock className="h-3 w-3 animate-spin" />
-              Running...
-            </>
-          ) : (
-            <>
-              <Play className="h-3 w-3" />
-              Run
-            </>
-          )}
+          <Play className="h-3 w-3" />
+          Run
         </Button>
-        
+
         {result?.status === 'error' && (
           <Button
             variant="ghost"
             size="sm"
             onClick={handleRunTest}
-            disabled={isRunning}
             className="flex items-center gap-1 text-destructive hover:text-destructive"
             aria-label={`Retry test case ${testCaseIndex + 1}`}
           >
@@ -89,11 +77,30 @@ export function ResultCell({
   // Show loading state
   if (result.status === 'pending' || result.status === 'running') {
     return (
-      <div className={cn("flex items-center gap-2 text-muted-foreground", className)}>
-        <Clock className="h-4 w-4 animate-spin" />
-        <span className="text-sm">
-          {result.status === 'pending' ? 'Pending...' : 'Running...'}
-        </span>
+      <div className={cn("flex items-center gap-2", className)}>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Clock className="h-4 w-4 animate-spin" />
+          <span className="text-sm">
+            {isRetrying ? 'Retrying...' : result.status === 'pending' ? 'Pending...' : 'Running...'}
+          </span>
+        </div>
+        {result.status === 'running' && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRunTest}
+            disabled={isRetrying}
+            className={cn(
+              "flex items-center gap-1 text-xs transition-all",
+              isRetrying && "opacity-50"
+            )}
+            aria-label={`Retry stuck test case ${testCaseIndex + 1}`}
+            title="Test appears stuck. Click to retry."
+          >
+            <RotateCcw className={cn("h-3 w-3", isRetrying && "animate-spin")} />
+            {isRetrying ? 'Retrying...' : 'Retry'}
+          </Button>
+        )}
       </div>
     );
   }
@@ -125,7 +132,6 @@ export function ResultCell({
             variant="ghost"
             size="sm"
             onClick={handleRunTest}
-            disabled={isRunning}
             className="flex items-center gap-1 text-xs"
             aria-label={`Re-run test case ${testCaseIndex + 1}`}
           >
@@ -182,7 +188,6 @@ export function ResultCell({
             variant="outline"
             size="sm"
             onClick={handleRunTest}
-            disabled={isRunning}
             className="flex items-center gap-1 text-xs"
             aria-label={`Retry test case ${testCaseIndex + 1}`}
           >

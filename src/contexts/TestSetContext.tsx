@@ -382,13 +382,18 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       // Only set pending/running status on first attempt
       if (retryCount === 0) {
-        // Create pending result
-        const pendingResult = createTestResult('', 'pending');
-        updateTestResultFn(testSetUid, caseId, identifier, pendingResult);
+        try {
+          // Create pending result
+          const pendingResult = createTestResult('', 'pending');
+          updateTestResultFn(testSetUid, caseId, identifier, pendingResult);
 
-        // Update to running status
-        const runningResult = createTestResult('', 'running');
-        updateTestResultFn(testSetUid, caseId, identifier, runningResult);
+          // Update to running status
+          const runningResult = createTestResult('', 'running');
+          updateTestResultFn(testSetUid, caseId, identifier, runningResult);
+        } catch (statusUpdateError) {
+          console.error(`Failed to update test status to running for case ${caseId}:`, statusUpdateError);
+          // Even if status update fails, continue with test execution
+        }
       }
 
       // Validate prompts exist
@@ -476,9 +481,14 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
         undefined,
         executionTime
       );
-      
-      updateTestResultFn(testSetUid, caseId, identifier, completedResult);
-      
+
+      try {
+        updateTestResultFn(testSetUid, caseId, identifier, completedResult);
+      } catch (resultUpdateError) {
+        console.error(`Failed to save completed result for case ${caseId}:`, resultUpdateError);
+        throw new Error(`Test completed but failed to save result: ${resultUpdateError instanceof Error ? resultUpdateError.message : 'Unknown error'}`);
+      }
+
       console.log(`Test case ${caseId} completed successfully`);
 
     } catch (error) {
@@ -506,9 +516,14 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
         `${detailedErrorMessage}${retryCount > 0 ? ` (failed after ${retryCount + 1} attempts)` : ''}`,
         executionTime
       );
-      
-      updateTestResultFn(testSetUid, caseId, identifier, errorResult);
-      
+
+      try {
+        updateTestResultFn(testSetUid, caseId, identifier, errorResult);
+      } catch (resultUpdateError) {
+        console.error(`Failed to save error result for case ${caseId}:`, resultUpdateError);
+        // Continue despite save failure - error is already logged
+      }
+
       // Log the error for debugging
       console.error(`Test case ${caseId} failed permanently:`, {
         error: errorMessage,
