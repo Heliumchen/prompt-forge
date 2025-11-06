@@ -29,7 +29,10 @@ interface ProjectContextType {
     icon?: string,
     projectData?: Partial<Project>
   ) => void;
-  updateProject: (project: Project) => void;
+  updateProject: (
+    updatedProjectOrUpdater: Project | ((project: Project) => Project),
+    projectUid?: string
+  ) => void;
   deleteProject: (uid: string) => void;
   addPrompt: (projectUid: string) => void;
   updatePrompt: (
@@ -177,15 +180,45 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   // 更新项目
-  const updateProject = (updatedProject: Project) => {
-    setProjects((prev) =>
-      prev.map((project) =>
-        project.uid === updatedProject.uid ? updatedProject : project
-      )
-    );
+  // Supports both direct project update and functional update for concurrent safety
+  const updateProject = (
+    updatedProjectOrUpdater: Project | ((project: Project) => Project),
+    projectUid?: string
+  ) => {
+    if (typeof updatedProjectOrUpdater === 'function') {
+      // Functional update: apply the updater function to the matching project
+      if (!projectUid) {
+        throw new Error('projectUid is required when using functional update');
+      }
 
-    if (currentProject?.uid === updatedProject.uid) {
-      setCurrentProject(updatedProject);
+      let resultProject: Project | null = null;
+
+      setProjects((prev) =>
+        prev.map((project) => {
+          if (project.uid === projectUid) {
+            const updated = updatedProjectOrUpdater(project);
+            resultProject = updated;
+            return updated;
+          }
+          return project;
+        })
+      );
+
+      if (currentProject?.uid === projectUid && resultProject) {
+        setCurrentProject(resultProject);
+      }
+    } else {
+      // Direct update: use the provided project
+      const updatedProject = updatedProjectOrUpdater;
+      setProjects((prev) =>
+        prev.map((project) =>
+          project.uid === updatedProject.uid ? updatedProject : project
+        )
+      );
+
+      if (currentProject?.uid === updatedProject.uid) {
+        setCurrentProject(updatedProject);
+      }
     }
   };
 

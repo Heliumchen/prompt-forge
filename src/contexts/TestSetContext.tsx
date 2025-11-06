@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import {
   createTestResult,
   addTestCase as addTestCaseToTestSet,
@@ -105,19 +105,49 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
     .filter(p => p.testSet)
     .map(p => p.testSet!);
 
+  // Sync currentTestSet when projects change to ensure it's always up-to-date
+  useEffect(() => {
+    if (currentTestSet) {
+      const updatedProject = projects.find(p => p.testSet?.uid === currentTestSet.uid);
+      if (updatedProject?.testSet) {
+        // Only update if the testSet has actually changed (avoid unnecessary re-renders)
+        if (JSON.stringify(updatedProject.testSet) !== JSON.stringify(currentTestSet)) {
+          setCurrentTestSet(updatedProject.testSet);
+        }
+      }
+    }
+  }, [projects, currentTestSet]);
+
   // Helper function to find project by testSet uid
   const findProjectByTestSetUid = (testSetUid: string): Project | undefined => {
     return projects.find(p => p.testSet?.uid === testSetUid);
   };
 
   // Helper function to update project and sync state
-  const updateProjectState = (updatedProject: Project) => {
-    // Use ProjectContext's updateProject to ensure single source of truth
-    updateProjectInContext(updatedProject);
+  // Supports both direct project update and functional update for race condition safety
+  const updateProjectState = (
+    updatedProjectOrUpdater: Project | ((project: Project) => Project),
+    projectUid?: string
+  ) => {
+    if (typeof updatedProjectOrUpdater === 'function') {
+      // Functional update: pass the updater to ProjectContext for safe concurrent updates
+      if (!projectUid) {
+        throw new Error('projectUid is required when using functional update');
+      }
+      updateProjectInContext(updatedProjectOrUpdater, projectUid);
 
-    // Update current test set if it was modified
-    if (currentTestSet && updatedProject.testSet?.uid === currentTestSet.uid) {
-      setCurrentTestSet(updatedProject.testSet);
+      // Update currentTestSet by re-finding the project
+      // Note: We need to update it in a useEffect or callback, but for now
+      // we can accept that it might be slightly delayed
+    } else {
+      // Direct update: use the provided project
+      const updatedProject = updatedProjectOrUpdater;
+      updateProjectInContext(updatedProject);
+
+      // Update current test set if it was modified
+      if (currentTestSet && updatedProject.testSet?.uid === currentTestSet.uid) {
+        setCurrentTestSet(updatedProject.testSet);
+      }
     }
   };
 
@@ -720,17 +750,33 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
     versionIdentifier: string,
     result: TestResult
   ) => {
-    // Find the project and update it
+    // First, find the project UID to enable functional update
     const project = projects.find(p => p.testSet?.uid === testSetUid);
     if (!project || !project.testSet) {
       throw new Error('Test set not found');
     }
 
-    const updatedTestSet = updateTestResultInSet(project.testSet, caseId, versionIdentifier, result);
-    const updatedProject = updateProjectTestSet(project, updatedTestSet);
+    const projectUid = project.uid;
 
-    // Use updateProjectState to update via ProjectContext
-    updateProjectState(updatedProject);
+    // Use functional update to prevent race conditions during concurrent test execution
+    // The updater function receives the LATEST project state at update time
+    updateProjectState((latestProject: Project) => {
+      if (!latestProject.testSet) {
+        throw new Error('Test set not found in project');
+      }
+
+      // Apply the update to the latest test set state
+      const updatedTestSet = updateTestResultInSet(
+        latestProject.testSet,
+        caseId,
+        versionIdentifier,
+        result
+      );
+
+      return updateProjectTestSet(latestProject, updatedTestSet);
+    }, projectUid);
+
+    // Note: currentTestSet will be automatically synced via useEffect
   };
 
   const clearResultHistoryFn = (testSetUid: string, caseId: string, versionIdentifier: string) => {

@@ -232,9 +232,9 @@ describe('TestSetContext', () => {
             'project-1',
             1
           );
-          
+
           // Update the test set with synchronized variables
-          context.updateTestSet(result.updatedTestSet);
+          context.updateTestSet('project-1', result.updatedTestSet);
         }
       };
 

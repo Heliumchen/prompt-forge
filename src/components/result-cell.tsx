@@ -3,7 +3,14 @@
 import React, { useState } from "react";
 import { TestResult } from "@/lib/testSetStorage";
 import { Button } from "@/components/ui/button";
-import { Play, RotateCcw, AlertCircle, CheckCircle, Clock, GitCompare } from "lucide-react";
+import {
+  Play,
+  RotateCcw,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  GitCompare,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ResultDiffDialog } from "./result-diff-dialog";
 
@@ -36,7 +43,7 @@ export function ResultCell({
     try {
       await onRunTest();
     } catch (error) {
-      console.error('Test execution failed:', error);
+      console.error("Test execution failed:", error);
     } finally {
       // Keep the retrying state for a moment to show feedback
       setTimeout(() => setIsRetrying(false), 500);
@@ -44,7 +51,7 @@ export function ResultCell({
   };
 
   // Show run button if no result or if result is in error state
-  if (!result || result.status === 'error') {
+  if (!result || result.status === "error") {
     return (
       <div className={cn("flex items-center gap-2", className)}>
         <Button
@@ -58,7 +65,7 @@ export function ResultCell({
           Run
         </Button>
 
-        {result?.status === 'error' && (
+        {result?.status === "error" && (
           <Button
             variant="ghost"
             size="sm"
@@ -75,16 +82,20 @@ export function ResultCell({
   }
 
   // Show loading state
-  if (result.status === 'pending' || result.status === 'running') {
+  if (result.status === "pending" || result.status === "running") {
     return (
       <div className={cn("flex items-center gap-2", className)}>
         <div className="flex items-center gap-2 text-muted-foreground">
           <Clock className="h-4 w-4 animate-spin" />
           <span className="text-sm">
-            {isRetrying ? 'Retrying...' : result.status === 'pending' ? 'Pending...' : 'Running...'}
+            {isRetrying
+              ? "Running..."
+              : result.status === "pending"
+                ? "Pending..."
+                : "Running..."}
           </span>
         </div>
-        {result.status === 'running' && (
+        {result.status === "running" && (
           <Button
             variant="ghost"
             size="sm"
@@ -92,13 +103,15 @@ export function ResultCell({
             disabled={isRetrying}
             className={cn(
               "flex items-center gap-1 text-xs transition-all",
-              isRetrying && "opacity-50"
+              isRetrying && "opacity-50",
             )}
             aria-label={`Retry stuck test case ${testCaseIndex + 1}`}
             title="Test appears stuck. Click to retry."
           >
-            <RotateCcw className={cn("h-3 w-3", isRetrying && "animate-spin")} />
-            {isRetrying ? 'Retrying...' : 'Retry'}
+            <RotateCcw
+              className={cn("h-3 w-3", isRetrying && "animate-spin")}
+            />
+            {isRetrying ? "Retrying..." : "Retry"}
           </Button>
         )}
       </div>
@@ -106,7 +119,7 @@ export function ResultCell({
   }
 
   // Show completed result
-  if (result.status === 'completed') {
+  if (result.status === "completed") {
     return (
       <div className={cn("space-y-2", className)}>
         <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
@@ -118,7 +131,7 @@ export function ResultCell({
             </span>
           )}
         </div>
-        
+
         {result.content && (
           <div className="bg-muted/50 rounded-md p-3 text-sm">
             <div className="max-h-32 overflow-y-auto custom-scrollbar">
@@ -126,7 +139,7 @@ export function ResultCell({
             </div>
           </div>
         )}
-        
+
         <div className="flex gap-2">
           <Button
             variant="ghost"
@@ -138,7 +151,7 @@ export function ResultCell({
             <RotateCcw className="h-3 w-3" />
             Re-run
           </Button>
-          
+
           {currentVersionId && (
             <Button
               variant="ghost"
@@ -152,14 +165,20 @@ export function ResultCell({
             </Button>
           )}
         </div>
-        
+
         <ResultDiffDialog
           open={showDiffDialog}
           onOpenChange={setShowDiffDialog}
           primaryResult={isComparisonColumn ? comparisonResult : result}
           comparisonResult={isComparisonColumn ? result : comparisonResult}
-          primaryVersionId={isComparisonColumn ? (comparisonVersionId || 'comparison') : (currentVersionId || 'current')}
-          comparisonVersionId={isComparisonColumn ? currentVersionId : comparisonVersionId}
+          primaryVersionId={
+            isComparisonColumn
+              ? comparisonVersionId || "comparison"
+              : currentVersionId || "current"
+          }
+          comparisonVersionId={
+            isComparisonColumn ? currentVersionId : comparisonVersionId
+          }
           testCaseIndex={testCaseIndex}
         />
       </div>
@@ -167,14 +186,14 @@ export function ResultCell({
   }
 
   // Show error state
-  if (result.status === 'error') {
+  if (result.status === "error") {
     return (
       <div className={cn("space-y-2", className)}>
         <div className="flex items-center gap-2 text-destructive">
           <AlertCircle className="h-4 w-4" />
           <span className="text-sm font-medium">Error</span>
         </div>
-        
+
         {result.error && (
           <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3 text-sm">
             <div className="max-h-32 overflow-y-auto text-destructive">
@@ -182,7 +201,7 @@ export function ResultCell({
             </div>
           </div>
         )}
-        
+
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -194,7 +213,7 @@ export function ResultCell({
             <RotateCcw className="h-3 w-3" />
             Retry
           </Button>
-          
+
           {currentVersionId && (
             <Button
               variant="ghost"
@@ -208,14 +227,20 @@ export function ResultCell({
             </Button>
           )}
         </div>
-        
+
         <ResultDiffDialog
           open={showDiffDialog}
           onOpenChange={setShowDiffDialog}
           primaryResult={isComparisonColumn ? comparisonResult : result}
           comparisonResult={isComparisonColumn ? result : comparisonResult}
-          primaryVersionId={isComparisonColumn ? (comparisonVersionId || 'comparison') : (currentVersionId || 'current')}
-          comparisonVersionId={isComparisonColumn ? currentVersionId : comparisonVersionId}
+          primaryVersionId={
+            isComparisonColumn
+              ? comparisonVersionId || "comparison"
+              : currentVersionId || "current"
+          }
+          comparisonVersionId={
+            isComparisonColumn ? currentVersionId : comparisonVersionId
+          }
           testCaseIndex={testCaseIndex}
         />
       </div>
@@ -228,14 +253,20 @@ export function ResultCell({
       <div className={cn("text-muted-foreground text-sm", className)}>
         Unknown status
       </div>
-      
+
       <ResultDiffDialog
         open={showDiffDialog}
         onOpenChange={setShowDiffDialog}
         primaryResult={isComparisonColumn ? comparisonResult : result}
         comparisonResult={isComparisonColumn ? result : comparisonResult}
-        primaryVersionId={isComparisonColumn ? (comparisonVersionId || 'comparison') : (currentVersionId || 'current')}
-        comparisonVersionId={isComparisonColumn ? currentVersionId : comparisonVersionId}
+        primaryVersionId={
+          isComparisonColumn
+            ? comparisonVersionId || "comparison"
+            : currentVersionId || "current"
+        }
+        comparisonVersionId={
+          isComparisonColumn ? currentVersionId : comparisonVersionId
+        }
         testCaseIndex={testCaseIndex}
       />
     </>
