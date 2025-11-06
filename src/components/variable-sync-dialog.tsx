@@ -54,8 +54,8 @@ export function VariableSyncDialog({
   const [isLoading, setIsLoading] = useState(false);
 
   // Get the associated project
-  const associatedProject = testSet 
-    ? projects.find(p => p.uid === testSet.associatedProjectUid)
+  const associatedProject = testSet
+    ? projects.find(p => p.testSet?.uid === testSet.uid)
     : null;
 
   // Reset state when dialog opens/closes or testSet changes
@@ -72,7 +72,7 @@ export function VariableSyncDialog({
   const handleVersionSelect = (versionId: string) => {
     const versionIdNum = parseInt(versionId, 10);
     setSelectedVersionId(versionIdNum);
-    
+
     if (testSet && associatedProject) {
       try {
         const result = syncVariablesFromVersion(
@@ -81,7 +81,7 @@ export function VariableSyncDialog({
           versionIdNum
         );
         setSyncResult(result);
-        
+
         // Show confirmation if there are removal conflicts
         const hasRemovals = result.conflicts.some(c => c.type === 'removal');
         setShowConfirmation(hasRemovals);
@@ -91,6 +91,17 @@ export function VariableSyncDialog({
       }
     }
   };
+
+  // Auto-select current version when dialog opens
+  useEffect(() => {
+    if (open && associatedProject && !selectedVersionId) {
+      const currentVersionId = associatedProject.currentVersion;
+      if (currentVersionId) {
+        handleVersionSelect(currentVersionId.toString());
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, associatedProject, selectedVersionId]);
 
   // Handle synchronization confirmation
   const handleConfirmSync = () => {
