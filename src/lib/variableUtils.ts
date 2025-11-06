@@ -300,11 +300,11 @@ function extractVariableFromSegments(segments: { type: 'text' | 'variable'; cont
  */
 export function extractVariablesFromSystemMessage(systemContent: string, promptTemplates: string[]): Record<string, string> {
   const extractedVariables: Record<string, string> = {};
-  
+
   if (!systemContent || !promptTemplates || promptTemplates.length === 0) {
     return extractedVariables;
   }
-  
+
   // Extract all variable names from all prompts
   const allVariableNames: string[] = [];
   promptTemplates.forEach(prompt => {
@@ -315,7 +315,7 @@ export function extractVariablesFromSystemMessage(systemContent: string, promptT
       }
     });
   });
-  
+
   // Extract variable values from system message
   allVariableNames.forEach(varName => {
     for (const prompt of promptTemplates) {
@@ -328,6 +328,74 @@ export function extractVariablesFromSystemMessage(systemContent: string, promptT
       }
     }
   });
-  
+
   return extractedVariables;
+}
+
+/**
+ * Extracts all variable values from a single message using a prompt template
+ * @param promptTemplate - The prompt template containing variables
+ * @param messageContent - The message content to extract from
+ * @returns Record of variable names to their extracted values
+ */
+export function extractVariablesFromMessage(promptTemplate: string, messageContent: string): Record<string, string> {
+  const extractedVariables: Record<string, string> = {};
+
+  if (!promptTemplate || !messageContent) {
+    return extractedVariables;
+  }
+
+  // Extract all variable names from the template
+  const variableNames = extractVariableNames(promptTemplate);
+
+  // Extract each variable value from the message
+  variableNames.forEach(varName => {
+    const value = extractVariableValueFromSystemMessage(promptTemplate, messageContent, varName);
+    if (value !== null) {
+      extractedVariables[varName] = value;
+    }
+  });
+
+  return extractedVariables;
+}
+
+/**
+ * Extracts variables from messages by matching them with prompt templates in order
+ * @param prompts - Array of prompt templates with roles (from version data)
+ * @param messages - Array of messages to extract from
+ * @returns Object containing extracted variables and the count of matched messages
+ */
+export function extractVariablesFromMessages(
+  prompts: Array<{ role: string; content: string }>,
+  messages: Array<{ role: string; content: string }>
+): { extractedVariables: Record<string, string>; matchedCount: number } {
+  const extractedVariables: Record<string, string> = {};
+  let matchedCount = 0;
+
+  if (!prompts || prompts.length === 0 || !messages || messages.length === 0) {
+    return { extractedVariables, matchedCount };
+  }
+
+  // Match prompts with messages in order
+  for (let i = 0; i < prompts.length && i < messages.length; i++) {
+    const prompt = prompts[i];
+    const message = messages[i];
+
+    // Only extract if roles match
+    if (prompt.role === message.role) {
+      const variables = extractVariablesFromMessage(prompt.content, message.content);
+      // Merge extracted variables (later values don't overwrite existing ones)
+      Object.entries(variables).forEach(([name, value]) => {
+        if (!(name in extractedVariables)) {
+          extractedVariables[name] = value;
+        }
+      });
+      matchedCount++;
+    } else {
+      // If roles don't match, stop matching
+      break;
+    }
+  }
+
+  return { extractedVariables, matchedCount };
 }

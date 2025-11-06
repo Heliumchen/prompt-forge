@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useProjects } from "@/contexts/ProjectContext";
-import { extractVariablesFromSystemMessage } from "@/lib/variableUtils";
+import { extractVariablesFromMessages } from "@/lib/variableUtils";
 import { Version } from "@/lib/storage";
 
 interface TestSetJSONImportDialogProps {
@@ -42,19 +42,17 @@ interface ParsedTestSetData {
 
 
 function parseTestSetJSON(jsonData: string, selectedVersion: Version): ParsedTestSetData {
-  const projectPrompts = selectedVersion.data.prompts.map(p => p.content);
   try {
     const parsed = JSON.parse(jsonData);
-    
+
     // Check if this is a messages array format
-    if (Array.isArray(parsed) && parsed.length > 0 && 
+    if (Array.isArray(parsed) && parsed.length > 0 &&
         parsed.every(item => item && typeof item === 'object' && 'role' in item && 'content' in item)) {
-      
+
       // This is a messages array - create a single test case
-      const messages: Array<{role: 'user' | 'assistant', content: string}> = [];
-      let systemMessage: {role: string, content: string} | null = null;
-      
-      // Separate system and other messages
+      // Validate all messages first
+      const allMessages: Array<{role: string, content: string}> = [];
+
       for (const [index, item] of parsed.entries()) {
         if (!item.role || !item.content) {
           return {
@@ -63,26 +61,36 @@ function parseTestSetJSON(jsonData: string, selectedVersion: Version): ParsedTes
             error: `Message at index ${index} must have 'role' and 'content' properties`
           };
         }
-        
-        if (item.role === 'system') {
-          systemMessage = { role: item.role, content: String(item.content) };
-        } else if (['user', 'assistant'].includes(String(item.role))) {
-          messages.push({
-            role: String(item.role) as 'user' | 'assistant',
-            content: String(item.content)
-          });
-        }
+
+        allMessages.push({
+          role: String(item.role),
+          content: String(item.content)
+        });
       }
-      
-      // Extract variable values from system message if available
-      const variableValues = systemMessage && projectPrompts.length > 0
-        ? extractVariablesFromSystemMessage(systemMessage.content, projectPrompts)
-        : {};
-      
+
+      // Extract variable values by matching template prompts with messages in order
+      const templatePrompts = selectedVersion.data.prompts.map(p => ({
+        role: p.role,
+        content: p.content
+      }));
+
+      const { extractedVariables, matchedCount } = extractVariablesFromMessages(
+        templatePrompts,
+        allMessages
+      );
+
+      // Remaining messages after template matching (only user/assistant)
+      const remainingMessages = allMessages.slice(matchedCount)
+        .filter(msg => ['user', 'assistant'].includes(msg.role))
+        .map(msg => ({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content
+        }));
+
       return {
         testCases: [{
-          variableValues,
-          messages
+          variableValues: extractedVariables,
+          messages: remainingMessages
         }],
         isValid: true
       };
@@ -250,7 +258,7 @@ export function TestSetJSONImportDialog({
         <DialogHeader>
           <DialogTitle>Import Test Cases from JSON</DialogTitle>
           <DialogDescription>
-            Import test cases with variable values and messages from JSON data.
+            Import test cases from JSON. Messages will be matched with the template prompts in order to extract variable values. Remaining messages will be imported as conversation history.
           </DialogDescription>
         </DialogHeader>
 

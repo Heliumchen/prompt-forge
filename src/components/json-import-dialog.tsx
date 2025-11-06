@@ -15,7 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { extractVariableNames, extractVariablesFromSystemMessage } from "@/lib/variableUtils";
+import { extractVariableNames, extractVariablesFromMessages } from "@/lib/variableUtils";
 import { Project, Version } from "@/lib/storage";
 
 interface JSONImportDialogProps {
@@ -38,7 +38,7 @@ interface ParsedJSONData {
 function parseMessagesJSON(jsonData: string, selectedVersion: Version): ParsedJSONData {
   try {
     const parsed = JSON.parse(jsonData);
-    
+
     // Ensure it's an array
     if (!Array.isArray(parsed)) {
       return {
@@ -51,9 +51,8 @@ function parseMessagesJSON(jsonData: string, selectedVersion: Version): ParsedJS
     }
 
     // Validate message format
-    const messages: Array<{role: string, content: string}> = [];
-    let systemMessage: {role: string, content: string} | null = null;
-    
+    const allMessages: Array<{role: string, content: string}> = [];
+
     for (const item of parsed) {
       if (!item || typeof item !== 'object' || !item.role || !item.content) {
         return {
@@ -64,12 +63,8 @@ function parseMessagesJSON(jsonData: string, selectedVersion: Version): ParsedJS
           error: "Each message must have 'role' and 'content' properties"
         };
       }
-      
-      if (item.role === 'system') {
-        systemMessage = { role: item.role, content: item.content };
-      } else {
-        messages.push({ role: item.role, content: item.content });
-      }
+
+      allMessages.push({ role: item.role, content: item.content });
     }
 
     // Extract variables from selected version's prompts
@@ -83,10 +78,19 @@ function parseMessagesJSON(jsonData: string, selectedVersion: Version): ParsedJS
       });
     });
 
-    // Extract variable values from system message if it exists
-    const extractedVariables = systemMessage
-      ? extractVariablesFromSystemMessage(systemMessage.content, selectedVersion.data.prompts.map(p => p.content))
-      : {};
+    // Extract variable values by matching template prompts with messages in order
+    const templatePrompts = selectedVersion.data.prompts.map(p => ({
+      role: p.role,
+      content: p.content
+    }));
+
+    const { extractedVariables, matchedCount } = extractVariablesFromMessages(
+      templatePrompts,
+      allMessages
+    );
+
+    // Remaining messages after template matching
+    const messages = allMessages.slice(matchedCount);
 
     return {
       messages,
@@ -158,7 +162,7 @@ export function JSONImportDialog({
         <DialogHeader>
           <DialogTitle>Import JSON Messages</DialogTitle>
           <DialogDescription>
-            Import messages from JSON array and extract variable values from system prompt.
+            Import messages from JSON array. The first N messages will be matched with the template prompts in order to extract variable values. Remaining messages will be imported as conversation history.
           </DialogDescription>
         </DialogHeader>
 
@@ -207,7 +211,7 @@ export function JSONImportDialog({
               {/* Variables Summary */}
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">
-                  Variable Values ({Object.keys(parsedData.extractedVariables).length} extracted)
+                  Variable Values ({Object.keys(parsedData.extractedVariables).length} extracted from template messages)
                 </div>
                 {Object.keys(parsedData.extractedVariables).length > 0 ? (
                   <div className="border rounded-lg p-3 max-h-32 overflow-auto space-y-1">
@@ -221,7 +225,7 @@ export function JSONImportDialog({
                   </div>
                 ) : (
                   <div className="text-xs text-muted-foreground">
-                    No variables could be extracted from the system message
+                    No variables could be extracted from the template messages
                   </div>
                 )}
               </div>
@@ -229,7 +233,7 @@ export function JSONImportDialog({
               {/* Messages Summary */}
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">
-                  Messages to Import ({parsedData.messages.length})
+                  Conversation Messages to Import ({parsedData.messages.length} after template matching)
                 </div>
                 {parsedData.messages.length > 0 ? (
                   <div className="border rounded-lg p-3 max-h-40 overflow-auto space-y-2">
@@ -237,8 +241,8 @@ export function JSONImportDialog({
                       <div key={index} className="text-xs">
                         <span className="font-medium capitalize">{message.role}:</span>
                         <span className="text-muted-foreground ml-2">
-                          {message.content.length > 100 
-                            ? `${message.content.substring(0, 100)}...` 
+                          {message.content.length > 100
+                            ? `${message.content.substring(0, 100)}...`
                             : message.content
                           }
                         </span>
@@ -252,7 +256,7 @@ export function JSONImportDialog({
                   </div>
                 ) : (
                   <div className="text-xs text-muted-foreground">
-                    No non-system messages found in JSON
+                    All messages matched with template (no additional conversation messages)
                   </div>
                 )}
               </div>
