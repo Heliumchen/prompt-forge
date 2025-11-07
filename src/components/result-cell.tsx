@@ -130,6 +130,11 @@ export function ResultCell({
               ({result.executionTime}ms)
             </span>
           )}
+          {result.content && (
+            <span className="text-xs text-muted-foreground">
+              {result.content.length} chars
+            </span>
+          )}
         </div>
 
         {result.content && (
