@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ResultDiffDialog } from "./result-diff-dialog";
+import { RatingSelect } from "./ui/rating-select";
 
 interface ResultCellProps {
   result?: TestResult;
@@ -23,6 +24,7 @@ interface ResultCellProps {
   currentVersionId?: string;
   comparisonVersionId?: string;
   isComparisonColumn?: boolean;
+  onRateResult?: (rating: number | undefined) => void;
 }
 
 export function ResultCell({
@@ -34,6 +36,7 @@ export function ResultCell({
   currentVersionId,
   comparisonVersionId,
   isComparisonColumn = false,
+  onRateResult,
 }: ResultCellProps) {
   const [showDiffDialog, setShowDiffDialog] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
@@ -118,16 +121,29 @@ export function ResultCell({
     );
   }
 
+  // Determine if this result is better/worse than comparison based on ratings
+  const currentRating = result?.rating;
+  const comparisonRatingValue = comparisonResult?.rating;
+  const shouldHighlight =
+    currentRating !== undefined &&
+    comparisonRatingValue !== undefined &&
+    currentRating !== comparisonRatingValue;
+  const isBetter = shouldHighlight && currentRating > comparisonRatingValue;
+
   // Show completed result
   if (result.status === "completed") {
     return (
-      <div className={cn("space-y-2", className)}>
+      <div className={cn(
+        "space-y-2 rounded-md p-2 -m-2 transition-colors",
+        isBetter && "bg-green-50 dark:bg-green-950/20",
+        className
+      )}>
         <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
           <CheckCircle className="h-4 w-4" />
           <span className="text-sm font-medium">Completed</span>
           {result.executionTime && (
             <span className="text-xs text-muted-foreground">
-              ({result.executionTime}ms)
+              ({(result.executionTime / 1000).toFixed(1)}s)
             </span>
           )}
           {result.content && (
@@ -169,6 +185,14 @@ export function ResultCell({
               Diff
             </Button>
           )}
+
+          {onRateResult && (
+            <RatingSelect
+              value={result.rating}
+              onValueChange={onRateResult}
+              className="ml-auto"
+            />
+          )}
         </div>
 
         <ResultDiffDialog
@@ -193,7 +217,11 @@ export function ResultCell({
   // Show error state
   if (result.status === "error") {
     return (
-      <div className={cn("space-y-2", className)}>
+      <div className={cn(
+        "space-y-2 rounded-md p-2 -m-2 transition-colors",
+        isBetter && "bg-green-50 dark:bg-green-950/20",
+        className
+      )}>
         <div className="flex items-center gap-2 text-destructive">
           <AlertCircle className="h-4 w-4" />
           <span className="text-sm font-medium">Error</span>

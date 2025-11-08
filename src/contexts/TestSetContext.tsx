@@ -70,7 +70,7 @@ interface TestSetContextType {
   
   // Result management
   updateTestResult: (testSetUid: string, caseId: string, versionIdentifier: string, result: TestResult) => void;
-
+  updateTestResultRating: (testSetUid: string, caseId: string, versionIdentifier: string, rating: number | undefined) => void;
   clearResultHistory: (testSetUid: string, caseId: string, versionIdentifier: string) => void;
   getResultStatistics: (testSetUid: string, versionIdentifier?: string) => {
     totalTestCases: number;
@@ -779,6 +779,55 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
     // Note: currentTestSet will be automatically synced via useEffect
   };
 
+  const updateTestResultRatingFn = (
+    testSetUid: string,
+    caseId: string,
+    versionIdentifier: string,
+    rating: number | undefined
+  ) => {
+    // First, find the project UID to enable functional update
+    const project = projects.find(p => p.testSet?.uid === testSetUid);
+    if (!project || !project.testSet) {
+      throw new Error('Test set not found');
+    }
+
+    const projectUid = project.uid;
+
+    // Use functional update to prevent race conditions
+    updateProjectState((latestProject: Project) => {
+      if (!latestProject.testSet) {
+        throw new Error('Test set not found in project');
+      }
+
+      // Find the test case and update its result's rating
+      const testCase = latestProject.testSet.testCases.find(tc => tc.id === caseId);
+      if (!testCase) {
+        throw new Error('Test case not found');
+      }
+
+      const existingResult = testCase.results[versionIdentifier];
+      if (!existingResult) {
+        throw new Error('Test result not found');
+      }
+
+      // Create updated result with new rating
+      const updatedResult: TestResult = {
+        ...existingResult,
+        rating,
+      };
+
+      // Apply the update to the latest test set state
+      const updatedTestSet = updateTestResultInSet(
+        latestProject.testSet,
+        caseId,
+        versionIdentifier,
+        updatedResult
+      );
+
+      return updateProjectTestSet(latestProject, updatedTestSet);
+    }, projectUid);
+  };
+
   const clearResultHistoryFn = (testSetUid: string, caseId: string, versionIdentifier: string) => {
     const project = findProjectByTestSetUid(testSetUid);
     if (!project || !project.testSet) {
@@ -853,6 +902,7 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
     cancelBatchExecution,
     isBatchRunning,
     updateTestResult: updateTestResultFn,
+    updateTestResultRating: updateTestResultRatingFn,
     clearResultHistory: clearResultHistoryFn,
     getResultStatistics: getResultStatisticsFn,
     updateTestSetUIState: updateTestSetUIStateFn,

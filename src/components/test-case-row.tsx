@@ -26,6 +26,7 @@ interface TestCaseRowProps {
   onDelete: () => void;
   onDuplicate: () => void;
   onRunTest: (versionIdentifier?: string) => Promise<void>;
+  onRateResult?: (versionIdentifier: string, rating: number | undefined) => void;
   className?: string;
 }
 
@@ -43,6 +44,7 @@ export function TestCaseRow({
   onDelete,
   onDuplicate,
   onRunTest,
+  onRateResult,
   className,
 }: TestCaseRowProps) {
   const [localVariableValues, setLocalVariableValues] = useState<
@@ -165,6 +167,9 @@ export function TestCaseRow({
               ? comparisonColumns[0].versionIdentifier
               : undefined
           }
+          onRateResult={
+            onRateResult ? (rating) => onRateResult(versionIdentifier, rating) : undefined
+          }
         />
       </td>
 
@@ -179,6 +184,11 @@ export function TestCaseRow({
             currentVersionId={comparisonColumns[0].versionIdentifier}
             comparisonVersionId={versionIdentifier}
             isComparisonColumn={true}
+            onRateResult={
+              onRateResult
+                ? (rating) => onRateResult(comparisonColumns[0].versionIdentifier, rating)
+                : undefined
+            }
           />
         ) : null}
       </td>

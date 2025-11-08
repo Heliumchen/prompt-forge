@@ -9,6 +9,7 @@ export interface TestResult {
   status: 'pending' | 'running' | 'completed' | 'error';
   error?: string;
   executionTime?: number;
+  rating?: number; // User rating: 1-5 (1=Poor, 2=Fair, 3=Good, 4=Very Good, 5=Excellent), undefined=not rated
 }
 
 // Test case represents a single row in the test set table

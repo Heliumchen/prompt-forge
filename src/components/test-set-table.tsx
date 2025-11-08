@@ -6,7 +6,7 @@ import { TestCaseRow } from "./test-case-row";
 import { ComparisonColumn } from "./comparison-controls";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2 } from "lucide-react";
+import { Trash2, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Select,
@@ -28,6 +28,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useProjects } from "@/contexts/ProjectContext";
 import { useTestSets } from "@/contexts/TestSetContext";
+import { calculateAverageRating, compareRatings } from "@/lib/ratingUtils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface TestSetTableProps {
   testSet: TestSet;
@@ -71,7 +78,7 @@ export function TestSetTable({
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
 
   const { projects } = useProjects();
-  const { updateTestSetUIState } = useTestSets();
+  const { updateTestSetUIState, updateTestResultRating } = useTestSets();
 
   // Get comparison version from testSet's UI state
   const comparisonVersion = testSet.uiState?.selectedComparisonVersion
@@ -144,6 +151,25 @@ export function TestSetTable({
     },
     [testSet.uid, updateTestSetUIState],
   );
+
+  // Handle rating result
+  const handleRateResult = useCallback(
+    (caseId: string, versionId: string, rating: number | undefined) => {
+      updateTestResultRating(testSet.uid, caseId, versionId, rating);
+    },
+    [testSet.uid, updateTestResultRating],
+  );
+
+  // Calculate average ratings
+  const primaryAverage = calculateAverageRating(testSet, versionIdentifier);
+  const comparisonAverage = comparisonVersion
+    ? calculateAverageRating(testSet, `v${comparisonVersion}`)
+    : null;
+
+  // Calculate comparison statistics
+  const comparisonStats = comparisonVersion
+    ? compareRatings(testSet, versionIdentifier, `v${comparisonVersion}`)
+    : null;
 
   // Create comparison column based on selected version
   const dynamicComparisonColumn: ComparisonColumn | null = comparisonVersion
@@ -221,7 +247,40 @@ export function TestSetTable({
 
               {/* Primary result column */}
               <th className="px-4 py-3 text-left text-sm font-medium text-foreground min-w-[200px]">
-                Result {versionIdentifier && `(${versionIdentifier})`}
+                <div className="flex items-center gap-2">
+                  <span>Result {versionIdentifier && `(${versionIdentifier})`}</span>
+                  {primaryAverage !== null && comparisonStats && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground cursor-help">
+                            <Star className="h-3 w-3" />
+                            {primaryAverage}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <div className="text-xs space-y-1">
+                            <div className="text-green-600 dark:text-green-400">
+                              {comparisonStats.primaryBetter} better
+                            </div>
+                            <div className="text-muted-foreground">
+                              {comparisonStats.tied} tied
+                            </div>
+                            <div className="text-orange-600 dark:text-orange-400">
+                              {comparisonStats.unrated} unrated
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  {primaryAverage !== null && !comparisonStats && (
+                    <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground">
+                      <Star className="h-3 w-3" />
+                      {primaryAverage}
+                    </span>
+                  )}
+                </div>
               </th>
 
               {/* Compare selector column - always visible */}
@@ -255,6 +314,37 @@ export function TestSetTable({
                       </SelectGroup>
                     </SelectContent>
                   </Select>
+                  {comparisonAverage !== null && comparisonStats && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground cursor-help">
+                            <Star className="h-3 w-3" />
+                            {comparisonAverage}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <div className="text-xs space-y-1">
+                            <div className="text-green-600 dark:text-green-400">
+                              {comparisonStats.comparisonBetter} better
+                            </div>
+                            <div className="text-muted-foreground">
+                              {comparisonStats.tied} tied
+                            </div>
+                            <div className="text-orange-600 dark:text-orange-400">
+                              {comparisonStats.unrated} unrated
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  {comparisonAverage !== null && !comparisonStats && (
+                    <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground">
+                      <Star className="h-3 w-3" />
+                      {comparisonAverage}
+                    </span>
+                  )}
                 </div>
               </th>
 
@@ -305,6 +395,9 @@ export function TestSetTable({
                 onDuplicate={() => onDuplicateTestCase(testCase.id)}
                 onRunTest={(versionId) =>
                   onRunSingleTest(testCase.id, versionId)
+                }
+                onRateResult={(versionId, rating) =>
+                  handleRateResult(testCase.id, versionId, rating)
                 }
               />
             ))}
