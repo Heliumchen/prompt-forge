@@ -516,6 +516,7 @@ export const duplicateTestCase = (testSet: TestSet, testCaseId: string): TestSet
   const duplicatedTestCase: TestCase = {
     id: generateUid(),
     variableValues: { ...originalTestCase.variableValues },
+    messages: originalTestCase.messages ? [...originalTestCase.messages] : undefined,
     results: {}
   };
   
