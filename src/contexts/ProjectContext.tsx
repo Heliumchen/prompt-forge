@@ -34,6 +34,8 @@ interface ProjectContextType {
     projectUid?: string
   ) => void;
   deleteProject: (uid: string) => void;
+  updateProjectIcon: (projectUid: string, icon: string) => void;
+  reorderProjects: (oldIndex: number, newIndex: number) => void;
   addPrompt: (projectUid: string) => void;
   updatePrompt: (
     projectUid: string,
@@ -129,7 +131,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
       const newProject: Project = {
         uid: generateUid(),
         name,
-        icon: icon || projectData.icon,
+        icon: icon || projectData.icon || "⚪",
         currentVersion: projectData.currentVersion || 1,
         versions: projectData.versions.map((version) => ({
           ...version,
@@ -152,7 +154,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
       const newProject: Project = {
         uid: generateUid(),
         name,
-        icon,
+        icon: icon || "⚪",
         currentVersion: 1,
         versions: [
           {
@@ -234,6 +236,29 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
         remainingProjects.length > 0 ? remainingProjects[0] : null
       );
     }
+  };
+
+  // 更新项目图标
+  const updateProjectIcon = (projectUid: string, icon: string) => {
+    setProjects((prev) =>
+      prev.map((project) =>
+        project.uid === projectUid ? { ...project, icon } : project
+      )
+    );
+
+    if (currentProject?.uid === projectUid) {
+      setCurrentProject({ ...currentProject, icon });
+    }
+  };
+
+  // 重新排序项目
+  const reorderProjects = (oldIndex: number, newIndex: number) => {
+    setProjects((prev) => {
+      const newProjects = [...prev];
+      const [removed] = newProjects.splice(oldIndex, 1);
+      newProjects.splice(newIndex, 0, removed);
+      return newProjects;
+    });
   };
 
   // 获取当前版本数据
@@ -561,6 +586,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
     addProject,
     updateProject,
     deleteProject,
+    updateProjectIcon,
+    reorderProjects,
     addPrompt,
     updatePrompt,
     deletePrompt,

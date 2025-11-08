@@ -5,9 +5,9 @@ import {
   MoreHorizontal,
   Trash2,
   Plus,
-  FileText,
   Copy,
   Download,
+  GripVertical,
 } from "lucide-react";
 
 import {
@@ -40,6 +40,131 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { EmojiPicker } from "@/components/emoji-picker";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
+// Sortable project item component
+function SortableProjectItem({
+  project,
+  isMobile,
+  onProjectClick,
+  onRename,
+  onDuplicate,
+  onExport,
+  onDelete,
+  onIconChange,
+}: {
+  project: Project;
+  isMobile: boolean;
+  onProjectClick: (uid: string) => void;
+  onRename: (uid: string) => void;
+  onDuplicate: (uid: string) => void;
+  onExport: (uid: string) => void;
+  onDelete: (uid: string) => void;
+  onIconChange: (uid: string, icon: string) => void;
+}) {
+  const { currentProject } = useProjects();
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: project.uid });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <SidebarMenuItem ref={setNodeRef} style={style}>
+      <div className="flex items-center w-full">
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing flex items-center"
+        >
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </div>
+        <EmojiPicker
+          value={project.icon && project.icon !== "Frame" ? project.icon : "⚪"}
+          onChange={(emoji) => onIconChange(project.uid, emoji)}
+        >
+          <div
+            className="text-xl hover:scale-110 transition-transform cursor-pointer"
+            role="button"
+            tabIndex={0}
+          >
+            {project.icon && project.icon !== "Frame" ? project.icon : "⚪"}
+          </div>
+        </EmojiPicker>
+        <SidebarMenuButton
+          onClick={() => onProjectClick(project.uid)}
+          className={`flex-1 ${currentProject?.uid === project.uid ? "bg-accent" : ""}`}
+        >
+          <div className="grid flex-1 text-left text-sm leading-tight">
+            <span className="truncate">{project.name}</span>
+            <span className="truncate text-xs text-muted-foreground">
+              {(project.testSet?.testCases?.length ?? 0) > 0 && (
+                <> {project.testSet?.testCases?.length} Testcases</>
+              )}
+            </span>
+          </div>
+        </SidebarMenuButton>
+      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <SidebarMenuAction showOnHover>
+            <MoreHorizontal />
+            <span className="sr-only">More</span>
+          </SidebarMenuAction>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          className="w-48"
+          side={isMobile ? "bottom" : "right"}
+          align={isMobile ? "end" : "start"}
+        >
+          <DropdownMenuItem onClick={() => onRename(project.uid)}>
+            <FolderPen className="text-muted-foreground" />
+            <span>Rename</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onDuplicate(project.uid)}>
+            <Copy className="text-muted-foreground" />
+            <span>Duplicate</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onExport(project.uid)}>
+            <Download className="text-muted-foreground" />
+            <span>Export</span>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => onDelete(project.uid)}>
+            <Trash2 className="text-muted-foreground" />
+            <span>Delete</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </SidebarMenuItem>
+  );
+}
 
 export function NavProjects() {
   const { isMobile } = useSidebar();
@@ -50,6 +175,8 @@ export function NavProjects() {
     addProject,
     deleteProject,
     updateProject,
+    updateProjectIcon,
+    reorderProjects,
   } = useProjects();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
@@ -58,6 +185,24 @@ export function NavProjects() {
   const [projectToRename, setProjectToRename] = useState<Project | null>(null);
   const [renameProjectName, setRenameProjectName] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = projects.findIndex((p) => p.uid === active.id);
+      const newIndex = projects.findIndex((p) => p.uid === over.id);
+      reorderProjects(oldIndex, newIndex);
+    }
+  };
 
   const handleProjectClick = (projectUid: string) => {
     const project = projects.find((p) => p.uid === projectUid);
@@ -180,78 +325,41 @@ export function NavProjects() {
     <>
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
         <SidebarGroupLabel>Projects</SidebarGroupLabel>
-        <SidebarMenu>
-          {projects.map((project) => {
-            return (
-              <SidebarMenuItem key={project.uid}>
-                <SidebarMenuButton
-                  onClick={() => handleProjectClick(project.uid)}
-                  className={
-                    currentProject?.uid === project.uid ? "bg-accent" : ""
-                  }
-                >
-                  <FileText />
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate">{project.name}</span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {(project.testSet?.testCases?.length ?? 0) > 0 && (
-                        <> {project.testSet?.testCases?.length} Testcases</>
-                      )}
-                    </span>
-                  </div>
-                </SidebarMenuButton>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <SidebarMenuAction showOnHover>
-                      <MoreHorizontal />
-                      <span className="sr-only">More</span>
-                    </SidebarMenuAction>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    className="w-48"
-                    side={isMobile ? "bottom" : "right"}
-                    align={isMobile ? "end" : "start"}
-                  >
-                    <DropdownMenuItem
-                      onClick={() => openRenameDialog(project.uid)}
-                    >
-                      <FolderPen className="text-muted-foreground" />
-                      <span>Rename</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleDuplicateProject(project.uid)}
-                    >
-                      <Copy className="text-muted-foreground" />
-                      <span>Duplicate</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleExportProject(project.uid)}
-                    >
-                      <Download className="text-muted-foreground" />
-                      <span>Export</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => handleDeleteProject(project.uid)}
-                    >
-                      <Trash2 className="text-muted-foreground" />
-                      <span>Delete</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </SidebarMenuItem>
-            );
-          })}
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              className="text-muted-foreground text-xs"
-              onClick={() => setIsDialogOpen(true)}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SidebarMenu>
+            <SortableContext
+              items={projects.map((p) => p.uid)}
+              strategy={verticalListSortingStrategy}
             >
-              <Plus />
-              <span>New Project</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+              {projects.map((project) => (
+                <SortableProjectItem
+                  key={project.uid}
+                  project={project}
+                  isMobile={isMobile}
+                  onProjectClick={handleProjectClick}
+                  onRename={openRenameDialog}
+                  onDuplicate={handleDuplicateProject}
+                  onExport={handleExportProject}
+                  onDelete={handleDeleteProject}
+                  onIconChange={updateProjectIcon}
+                />
+              ))}
+            </SortableContext>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                className="text-muted-foreground text-xs"
+                onClick={() => setIsDialogOpen(true)}
+              >
+                <Plus />
+                <span>New Project</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </DndContext>
       </SidebarGroup>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

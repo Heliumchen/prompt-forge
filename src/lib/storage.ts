@@ -120,7 +120,7 @@ const migrateProject = (oldProject: Omit<Project, 'currentVersion' | 'versions'>
   return {
     uid: oldProject.uid,
     name: oldProject.name,
-    icon: oldProject.icon,
+    icon: (oldProject.icon && oldProject.icon !== 'Frame') ? oldProject.icon : '⚪',
     currentVersion: 1,
     versions: [version]
   };
@@ -244,7 +244,7 @@ export const validateAndFixProject = (project: unknown): Project | null => {
   return {
     uid: proj.uid,
     name: proj.name,
-    icon: proj.icon || '📝',
+    icon: (proj.icon && proj.icon !== 'Frame') ? proj.icon : '⚪',
     currentVersion: validCurrentVersion,
     versions: fixedVersions,
     testSet: proj.testSet
