@@ -43,7 +43,7 @@ export function EmojiPicker({ value, onChange, children }: EmojiPickerProps) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverAnchor asChild>
-        {React.cloneElement(children as React.ReactElement, {
+        {React.cloneElement(children as React.ReactElement<{ onClick?: (e: React.MouseEvent) => void }>, {
           onClick: handleTriggerClick,
         })}
       </PopoverAnchor>
