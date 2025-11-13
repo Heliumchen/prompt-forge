@@ -1,14 +1,11 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import {
-  Anvil,
-  Github,
-} from "lucide-react"
+import * as React from "react";
+import { Anvil, Github } from "lucide-react";
 
-import { NavProjects } from "@/components/nav-projects"
-import { NavAPIKeysSettings } from "@/components/nav-api-keys-settings"
-import { NavBackupSettings } from "@/components/nav-backup-settings"
+import { NavProjects } from "@/components/nav-projects";
+import { NavAPIKeysSettings } from "@/components/nav-api-keys-settings";
+import { NavBackupSettings } from "@/components/nav-backup-settings";
 import {
   Sidebar,
   SidebarContent,
@@ -19,17 +16,17 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
-import { ThemeToggle } from "./theme-toggle"
-import { useProjects } from "@/contexts/ProjectContext"
+} from "@/components/ui/sidebar";
+import { ThemeToggle } from "./theme-toggle";
+import { useProjects } from "@/contexts/ProjectContext";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { clearCurrentProject } = useProjects()
+  const { clearCurrentProject } = useProjects();
 
   const handleLogoClick = (e: React.MouseEvent) => {
-    e.preventDefault()
-    clearCurrentProject()
-  }
+    e.preventDefault();
+    clearCurrentProject();
+  };
 
   return (
     <Sidebar variant="inset" {...props}>
@@ -50,7 +47,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="custom-scrollbar">
         <NavProjects />
       </SidebarContent>
       <SidebarFooter className="p-0">
@@ -73,11 +70,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     <span>View on Github</span>
                   </a>
                 </SidebarMenuButton>
-              </SidebarMenuItem>              
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
-        </SidebarGroup>          
+        </SidebarGroup>
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }
