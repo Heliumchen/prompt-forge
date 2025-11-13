@@ -110,7 +110,7 @@ function SortableProjectItem({
           onChange={(emoji) => onIconChange(project.uid, emoji)}
         >
           <div
-            className="text-xl hover:scale-110 transition-transform cursor-pointer"
+            className="hover:scale-110 transition-transform cursor-pointer"
             role="button"
             tabIndex={0}
           >
