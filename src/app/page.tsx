@@ -503,7 +503,10 @@ export default function Page() {
               </TabsContent>
 
               <TabsContent value="testset" className="h-full m-0 p-0">
-                <TestSetView testSetUid={currentProject.testSet?.uid} />
+                <TestSetView
+                  testSetUid={currentProject.testSet?.uid}
+                  targetVersion={currentProject.currentVersion}
+                />
               </TabsContent>
             </Tabs>
           ) : (

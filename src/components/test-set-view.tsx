@@ -314,9 +314,6 @@ export function TestSetView({ testSetUid, targetVersion }: TestSetViewProps) {
           toast.error("Invalid version identifier");
           return;
         }
-      } else if (targetVersion) {
-        targetVersion = targetVersion;
-        targetVersionIdentifier = `v${targetVersion}`;
       } else {
         toast.error("Please select a version to test against");
         return;
