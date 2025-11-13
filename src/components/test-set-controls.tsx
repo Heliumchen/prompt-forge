@@ -11,14 +11,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -33,14 +25,12 @@ import { toast } from "sonner";
 
 interface TestSetControlsProps {
   testSetUid: string;
-  onVersionChange?: (version: number | null) => void;
-  selectedVersion?: number | null;
+  selectedVersion: number | null;
 }
 
 export function TestSetControls({
   testSetUid: _testSetUid,
-  onVersionChange,
-  selectedVersion: externalSelectedVersion,
+  selectedVersion,
 }: TestSetControlsProps) {
   const {
     currentTestSet,
@@ -53,9 +43,6 @@ export function TestSetControls({
   } = useTestSets();
   const { projects } = useProjects();
 
-  const [selectedVersion, setSelectedVersion] = useState<number | null>(
-    externalSelectedVersion || null,
-  );
   const [isVariableSyncDialogOpen, setIsVariableSyncDialogOpen] =
     useState(false);
   const [isResultHistoryDialogOpen, setIsResultHistoryDialogOpen] =
@@ -68,24 +55,13 @@ export function TestSetControls({
     ? projects.find((p) => p.testSet?.uid === currentTestSet.uid)
     : null;
 
-  // Get available versions from the associated project
-  const availableVersions = associatedProject?.versions || [];
-
-  // Handle version selection
-  const handleVersionChange = (versionId: string) => {
-    const version = parseInt(versionId, 10);
-    setSelectedVersion(version);
-    onVersionChange?.(version);
-  };
-
   // Check if all test cases have results for the selected version
   const hasAllTestsRun = () => {
     if (!currentTestSet || !currentTestSet.testCases.length) return false;
 
-    const targetVersion = externalSelectedVersion || selectedVersion;
-    if (!targetVersion) return false;
+    if (!selectedVersion) return false;
 
-    const versionIdentifier = `v${targetVersion}`;
+    const versionIdentifier = `v${selectedVersion}`;
     return currentTestSet.testCases.every(
       (testCase) =>
         testCase.results[versionIdentifier] &&
@@ -96,7 +72,7 @@ export function TestSetControls({
 
   // Handle run all tests
   const handleRunAllTests = async () => {
-    const targetVersion = externalSelectedVersion || selectedVersion;
+    const targetVersion = selectedVersion;
     if (!currentTestSet || !targetVersion) {
       toast.error("Please select a version to test against");
       return;
@@ -269,36 +245,6 @@ export function TestSetControls({
 
   return (
     <div className="flex items-center gap-2 p-4 border-b bg-background">
-      {/* Version Selection */}
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium">Target Version:</span>
-        <Select
-          value={
-            externalSelectedVersion || selectedVersion
-              ? String(externalSelectedVersion || selectedVersion)
-              : ""
-          }
-          onValueChange={handleVersionChange}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Select version" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {availableVersions
-                .slice()
-                .sort((a, b) => b.id - a.id)
-                .map((version) => (
-                  <SelectItem key={version.id} value={String(version.id)}>
-                    #{version.id}
-                    {version.description ? ` - ${version.description}` : ""}
-                  </SelectItem>
-                ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      </div>
-
       {/* Run All Button */}
       <TooltipProvider>
         <Tooltip>
@@ -316,7 +262,7 @@ export function TestSetControls({
               <Button
                 onClick={handleRunAllTests}
                 disabled={
-                  !(externalSelectedVersion || selectedVersion) ||
+                  !selectedVersion ||
                   currentTestSet.testCases.length === 0
                 }
               >
@@ -444,8 +390,8 @@ export function TestSetControls({
           onOpenChange={setIsResultHistoryDialogOpen}
           testSet={currentTestSet}
           versionIdentifier={
-            externalSelectedVersion || selectedVersion
-              ? `v${externalSelectedVersion || selectedVersion}`
+            selectedVersion
+              ? `v${selectedVersion}`
               : undefined
           }
         />

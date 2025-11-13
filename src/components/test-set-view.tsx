@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface TestSetViewProps {
   testSetUid?: string;
+  targetVersion?: number;
 }
 
 // Error boundary component for test set operations
@@ -64,7 +65,7 @@ class TestSetErrorBoundary extends React.Component<
   }
 }
 
-export function TestSetView({ testSetUid }: TestSetViewProps) {
+export function TestSetView({ testSetUid, targetVersion }: TestSetViewProps) {
   const {
     currentTestSet,
     setCurrentTestSet,
@@ -81,7 +82,6 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
   } = useTestSets();
   const { projects, currentProject, updateProject } = useProjects();
 
-  const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isJSONImportOpen, setIsJSONImportOpen] = useState(false);
@@ -118,26 +118,7 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
 
     // Clear error if everything is valid
     setError(null);
-
-    // Reset selected version if it doesn't exist in the project
-    if (
-      selectedVersion &&
-      !associatedProject.versions.find((v) => v.id === selectedVersion)
-    ) {
-      setSelectedVersion(null);
-      toast.error(
-        "Selected version no longer exists. Please select a different version.",
-      );
-    }
-
-    // Auto-select the latest version (highest version number) if no version is selected
-    if (!selectedVersion && associatedProject.versions.length > 0) {
-      const latestVersion = Math.max(
-        ...associatedProject.versions.map((v) => v.id),
-      );
-      setSelectedVersion(latestVersion);
-    }
-  }, [currentTestSet, associatedProject, selectedVersion]);
+  }, [currentTestSet, associatedProject]);
 
   // Error handler for the error boundary
   const handleError = useCallback((error: Error) => {
@@ -333,9 +314,9 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
           toast.error("Invalid version identifier");
           return;
         }
-      } else if (selectedVersion) {
-        targetVersion = selectedVersion;
-        targetVersionIdentifier = `v${selectedVersion}`;
+      } else if (targetVersion) {
+        targetVersion = targetVersion;
+        targetVersionIdentifier = `v${targetVersion}`;
       } else {
         toast.error("Please select a version to test against");
         return;
@@ -379,7 +360,7 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
         setError(errorMessage);
       }
     },
-    [currentTestSet, associatedProject, selectedVersion, runSingleTest],
+    [currentTestSet, associatedProject, targetVersion, runSingleTest],
   );
 
   // Add keyboard shortcut support for JSON import
@@ -464,7 +445,7 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
     );
   }
 
-  const versionIdentifier = selectedVersion ? `v${selectedVersion}` : "default";
+  const versionIdentifier = targetVersion ? `v${targetVersion}` : "default";
 
   return (
     <TestSetErrorBoundary onError={handleError}>
@@ -482,15 +463,14 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
         {/* Main controls */}
         <TestSetControls
           testSetUid={testSetUid}
-          onVersionChange={setSelectedVersion}
-          selectedVersion={selectedVersion}
+          selectedVersion={targetVersion || null}
         />
 
         {/* Test set table */}
-        <div className="flex-1 custom-scrollbar">
+        <div className="flex-1 overflow-auto custom-scrollbar">
           <TestSetTable
             testSet={currentTestSet}
-            targetVersion={selectedVersion || undefined}
+            targetVersion={targetVersion || undefined}
             versionIdentifier={versionIdentifier}
             onUpdateTestCase={handleUpdateTestCase}
             onUpdateTestCaseMessages={handleUpdateTestCaseMessages}
