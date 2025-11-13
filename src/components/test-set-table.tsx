@@ -6,7 +6,7 @@ import { TestCaseRow } from "./test-case-row";
 import { ComparisonColumn } from "./comparison-controls";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Star } from "lucide-react";
+import { Trash2, Star, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Select,
@@ -56,6 +56,7 @@ interface TestSetTableProps {
     caseId: string,
     versionIdentifier?: string,
   ) => Promise<void>;
+  onAddTestCase?: () => void;
   className?: string;
 }
 
@@ -70,6 +71,7 @@ export function TestSetTable({
   onDuplicateTestCase,
   onBulkDeleteTestCases,
   onRunSingleTest,
+  onAddTestCase,
   className,
 }: TestSetTableProps) {
   const [selectedTestCases, setSelectedTestCases] = useState<Set<string>>(
@@ -401,6 +403,30 @@ export function TestSetTable({
                 }
               />
             ))}
+
+            {/* Add Test Case Row */}
+            {onAddTestCase && (
+              <tr
+                className="border-t border-dashed border-border hover:bg-muted/30 cursor-pointer transition-colors"
+                onClick={onAddTestCase}
+              >
+                <td
+                  colSpan={
+                    (onBulkDeleteTestCases ? 1 : 0) + // Selection column
+                    2 + // Primary result + Compare columns
+                    testSet.variableNames.length + // Variable columns
+                    1 + // Messages column
+                    1 // Actions column
+                  }
+                  className="px-4 py-4 text-center"
+                >
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+                    <Plus className="h-4 w-4" />
+                    <span className="text-sm">Add Test Case</span>
+                  </div>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

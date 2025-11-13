@@ -77,6 +77,7 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
     runSingleTest,
     runAllTests: _runAllTests,
     isBatchRunning,
+    addTestCase,
   } = useTestSets();
   const { projects, currentProject, updateProject } = useProjects();
 
@@ -291,6 +292,25 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
     [currentTestSet, bulkDeleteTestCases],
   );
 
+  // Handle adding test case
+  const handleAddTestCase = useCallback(() => {
+    if (!currentTestSet) {
+      toast.error("No test set selected");
+      return;
+    }
+
+    try {
+      addTestCase(currentTestSet.uid);
+      toast.success("Test case added");
+    } catch (error) {
+      console.error("Failed to add test case:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to add test case";
+      toast.error(errorMessage);
+      setError(errorMessage);
+    }
+  }, [currentTestSet, addTestCase]);
+
   // Handle running single test with enhanced error handling
   const handleRunSingleTest = useCallback(
     async (caseId: string, versionIdentifier?: string) => {
@@ -478,6 +498,7 @@ export function TestSetView({ testSetUid }: TestSetViewProps) {
             onDuplicateTestCase={handleDuplicateTestCase}
             onBulkDeleteTestCases={handleBulkDeleteTestCases}
             onRunSingleTest={handleRunSingleTest}
+            onAddTestCase={handleAddTestCase}
           />
         </div>
       </div>
