@@ -1,13 +1,28 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { TestSet } from "@/lib/testSetStorage";
 import { TestCaseRow } from "./test-case-row";
 import { ComparisonColumn } from "./comparison-controls";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Star, Plus } from "lucide-react";
+import { Trash2, Star, Plus, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { arrayMove } from "@dnd-kit/sortable";
 import {
   Select,
   SelectContent,
@@ -60,6 +75,46 @@ interface TestSetTableProps {
   className?: string;
 }
 
+// Sortable column header component for drag-and-drop reordering
+function SortableColumnHeader({ variableName }: { variableName: string }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: variableName });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <th
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "px-4 py-3 text-left text-sm font-medium text-foreground group",
+        isDragging && "opacity-50 z-50"
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors touch-none"
+          aria-label={`Drag to reorder ${variableName} column`}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <span>{variableName}</span>
+      </div>
+    </th>
+  );
+}
+
 export function TestSetTable({
   testSet,
   targetVersion,
@@ -79,8 +134,27 @@ export function TestSetTable({
   );
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
 
+  // Column order state for drag-and-drop reordering
+  const [orderedVariableNames, setOrderedVariableNames] = useState<string[]>(
+    testSet.variableNames
+  );
+
+  // Configure drag sensors with distance threshold to prevent accidental drags
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
   const { projects } = useProjects();
   const { updateTestSetUIState, updateTestResultRating } = useTestSets();
+
+  // Sync orderedVariableNames when testSet.variableNames changes
+  useEffect(() => {
+    setOrderedVariableNames(testSet.variableNames);
+  }, [testSet.variableNames]);
 
   // Get comparison version from testSet's UI state
   const comparisonVersion = testSet.uiState?.selectedComparisonVersion
@@ -162,6 +236,19 @@ export function TestSetTable({
     [testSet.uid, updateTestResultRating],
   );
 
+  // Handle column reordering
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setOrderedVariableNames((items) => {
+        const oldIndex = items.indexOf(active.id as string);
+        const newIndex = items.indexOf(over.id as string);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  }, []);
+
   // Calculate average ratings
   const primaryAverage = calculateAverageRating(testSet, versionIdentifier);
   const comparisonAverage = comparisonVersion
@@ -227,156 +314,164 @@ export function TestSetTable({
           </div>
         )}
 
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="border-b border-border bg-muted/50">
-              {/* Selection column */}
-              {onBulkDeleteTestCases && (
-                <th className="px-4 py-3 w-[40px]">
-                  <Checkbox
-                    checked={allSelected}
-                    ref={(el) => {
-                      if (el) {
-                        const input = el.querySelector("input");
-                        if (input) input.indeterminate = someSelected;
-                      }
-                    }}
-                    onCheckedChange={handleSelectAll}
-                    aria-label="Select all test cases"
-                  />
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-border bg-muted/50">
+                {/* Selection column */}
+                {onBulkDeleteTestCases && (
+                  <th className="px-4 py-3 w-[40px]">
+                    <Checkbox
+                      checked={allSelected}
+                      ref={(el) => {
+                        if (el) {
+                          const input = el.querySelector("input");
+                          if (input) input.indeterminate = someSelected;
+                        }
+                      }}
+                      onCheckedChange={handleSelectAll}
+                      aria-label="Select all test cases"
+                    />
+                  </th>
+                )}
+
+                {/* Primary result column */}
+                <th className="px-4 py-3 text-left text-sm font-medium text-foreground min-w-[200px]">
+                  <div className="flex items-center gap-2">
+                    <span>Result {versionIdentifier && `(${versionIdentifier})`}</span>
+                    {primaryAverage !== null && comparisonStats && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground cursor-help">
+                              <Star className="h-3 w-3" />
+                              {primaryAverage}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <div className="text-xs space-y-1">
+                              <div className="text-green-600 dark:text-green-400">
+                                {comparisonStats.primaryBetter} better
+                              </div>
+                              <div className="text-muted-foreground">
+                                {comparisonStats.tied} tied
+                              </div>
+                              <div className="text-orange-600 dark:text-orange-400">
+                                {comparisonStats.unrated} unrated
+                              </div>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                    {primaryAverage !== null && !comparisonStats && (
+                      <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground">
+                        <Star className="h-3 w-3" />
+                        {primaryAverage}
+                      </span>
+                    )}
+                  </div>
                 </th>
-              )}
 
-              {/* Primary result column */}
-              <th className="px-4 py-3 text-left text-sm font-medium text-foreground min-w-[200px]">
-                <div className="flex items-center gap-2">
-                  <span>Result {versionIdentifier && `(${versionIdentifier})`}</span>
-                  {primaryAverage !== null && comparisonStats && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground cursor-help">
-                            <Star className="h-3 w-3" />
-                            {primaryAverage}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <div className="text-xs space-y-1">
-                            <div className="text-green-600 dark:text-green-400">
-                              {comparisonStats.primaryBetter} better
+                {/* Compare selector column - always visible */}
+                <th className="px-4 py-3 text-left text-sm font-medium text-foreground min-w-[150px] border-l border-r border-border">
+                  <div className="flex items-center gap-2">
+                    <span>Compare</span>
+                    <Select
+                      value={testSet.uiState?.selectedComparisonVersion || "none"}
+                      onValueChange={handleComparisonVersionChange}
+                    >
+                      <SelectTrigger className="w-[120px] h-7 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem value="none">None</SelectItem>
+                          {availableComparisonVersions
+                            .slice()
+                            .sort((a, b) => b.id - a.id)
+                            .map((version) => (
+                              <SelectItem
+                                key={version.id}
+                                value={String(version.id)}
+                              >
+                                #{version.id}
+                                {version.description
+                                  ? ` - ${version.description}`
+                                  : ""}
+                              </SelectItem>
+                            ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    {comparisonAverage !== null && comparisonStats && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground cursor-help">
+                              <Star className="h-3 w-3" />
+                              {comparisonAverage}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <div className="text-xs space-y-1">
+                              <div className="text-green-600 dark:text-green-400">
+                                {comparisonStats.comparisonBetter} better
+                              </div>
+                              <div className="text-muted-foreground">
+                                {comparisonStats.tied} tied
+                              </div>
+                              <div className="text-orange-600 dark:text-orange-400">
+                                {comparisonStats.unrated} unrated
+                              </div>
                             </div>
-                            <div className="text-muted-foreground">
-                              {comparisonStats.tied} tied
-                            </div>
-                            <div className="text-orange-600 dark:text-orange-400">
-                              {comparisonStats.unrated} unrated
-                            </div>
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                  {primaryAverage !== null && !comparisonStats && (
-                    <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground">
-                      <Star className="h-3 w-3" />
-                      {primaryAverage}
-                    </span>
-                  )}
-                </div>
-              </th>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                    {comparisonAverage !== null && !comparisonStats && (
+                      <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground">
+                        <Star className="h-3 w-3" />
+                        {comparisonAverage}
+                      </span>
+                    )}
+                  </div>
+                </th>
 
-              {/* Compare selector column - always visible */}
-              <th className="px-4 py-3 text-left text-sm font-medium text-foreground min-w-[150px] border-l border-r border-border">
-                <div className="flex items-center gap-2">
-                  <span>Compare</span>
-                  <Select
-                    value={testSet.uiState?.selectedComparisonVersion || "none"}
-                    onValueChange={handleComparisonVersionChange}
-                  >
-                    <SelectTrigger className="w-[120px] h-7 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="none">None</SelectItem>
-                        {availableComparisonVersions
-                          .slice()
-                          .sort((a, b) => b.id - a.id)
-                          .map((version) => (
-                            <SelectItem
-                              key={version.id}
-                              value={String(version.id)}
-                            >
-                              #{version.id}
-                              {version.description
-                                ? ` - ${version.description}`
-                                : ""}
-                            </SelectItem>
-                          ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  {comparisonAverage !== null && comparisonStats && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground cursor-help">
-                            <Star className="h-3 w-3" />
-                            {comparisonAverage}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <div className="text-xs space-y-1">
-                            <div className="text-green-600 dark:text-green-400">
-                              {comparisonStats.comparisonBetter} better
-                            </div>
-                            <div className="text-muted-foreground">
-                              {comparisonStats.tied} tied
-                            </div>
-                            <div className="text-orange-600 dark:text-orange-400">
-                              {comparisonStats.unrated} unrated
-                            </div>
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                  {comparisonAverage !== null && !comparisonStats && (
-                    <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground">
-                      <Star className="h-3 w-3" />
-                      {comparisonAverage}
-                    </span>
-                  )}
-                </div>
-              </th>
-
-              {/* Variable columns */}
-              {testSet.variableNames.map((variableName) => (
-                <th
-                  key={variableName}
-                  className="px-4 py-3 text-left text-sm font-medium text-foreground"
+                {/* Variable columns - sortable */}
+                <SortableContext
+                  items={orderedVariableNames}
+                  strategy={horizontalListSortingStrategy}
                 >
-                  {variableName}
+                  {orderedVariableNames.map((variableName) => (
+                    <SortableColumnHeader
+                      key={variableName}
+                      variableName={variableName}
+                    />
+                  ))}
+                </SortableContext>
+
+                {/* Messages column */}
+                <th className="px-4 py-3 text-left text-sm font-medium text-foreground w-[120px]">
+                  Messages
                 </th>
-              ))}
 
-              {/* Messages column */}
-              <th className="px-4 py-3 text-left text-sm font-medium text-foreground w-[120px]">
-                Messages
-              </th>
-
-              {/* Actions column */}
-              <th className="px-4 py-3 text-left text-sm font-medium text-foreground w-[60px] border-l border-border">
-                Actions
-              </th>
-            </tr>
-          </thead>
+                {/* Actions column */}
+                <th className="px-4 py-3 text-left text-sm font-medium text-foreground w-[60px] border-l border-border">
+                  Actions
+                </th>
+              </tr>
+            </thead>
           <tbody>
             {testSet.testCases.map((testCase, index) => (
               <TestCaseRow
                 key={testCase.id}
                 testCase={testCase}
-                variableNames={testSet.variableNames}
+                variableNames={orderedVariableNames}
                 versionIdentifier={versionIdentifier}
                 comparisonColumns={
                   dynamicComparisonColumn ? [dynamicComparisonColumn] : []
@@ -414,7 +509,7 @@ export function TestSetTable({
                   colSpan={
                     (onBulkDeleteTestCases ? 1 : 0) + // Selection column
                     2 + // Primary result + Compare columns
-                    testSet.variableNames.length + // Variable columns
+                    orderedVariableNames.length + // Variable columns
                     1 + // Messages column
                     1 // Actions column
                   }
@@ -429,6 +524,7 @@ export function TestSetTable({
             )}
           </tbody>
         </table>
+        </DndContext>
       </div>
 
       {/* Bulk delete confirmation dialog */}

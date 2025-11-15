@@ -1,7 +1,16 @@
 "use client";
 
 import React, { useState } from "react";
-import { Play, Plus, RefreshCw, StopCircle, History, MoreHorizontal, Sheet, FileJson, Download } from "lucide-react";
+import {
+  Play,
+  Plus,
+  RefreshCw,
+  StopCircle,
+  History,
+  MoreHorizontal,
+  Sheet,
+  Download,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -137,44 +146,6 @@ export function TestSetControls({
     }
   };
 
-  // Handle export JSON
-  const handleExportJSON = () => {
-    if (!currentTestSet) return;
-
-    try {
-      const exportData = {
-        testSetName: currentTestSet.name,
-        projectName: associatedProject?.name || "Unknown Project",
-        exportedAt: new Date().toISOString(),
-        variableNames: currentTestSet.variableNames,
-        testCases: currentTestSet.testCases.map((testCase, index) => ({
-          testCaseIndex: index + 1,
-          testCaseId: testCase.id,
-          variableValues: testCase.variableValues,
-          results: testCase.results,
-        })),
-      };
-
-      // Create and download JSON file
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${currentTestSet.name.replace(/[<>:"/\\|?*]/g, "_")}_testset.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      toast.success("Test set exported as JSON successfully");
-    } catch (error) {
-      console.error("Failed to export JSON:", error);
-      toast.error("Failed to export JSON");
-    }
-  };
-
   // Handle export CSV
   const handleExportCSV = () => {
     if (!currentTestSet) return;
@@ -262,8 +233,7 @@ export function TestSetControls({
               <Button
                 onClick={handleRunAllTests}
                 disabled={
-                  !selectedVersion ||
-                  currentTestSet.testCases.length === 0
+                  !selectedVersion || currentTestSet.testCases.length === 0
                 }
               >
                 <Play className="h-4 w-4" />
@@ -347,11 +317,6 @@ export function TestSetControls({
             <Sheet className="h-4 w-4 mr-2 text-muted-foreground" />
             <span>Export CSV</span>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleExportJSON}>
-            <FileJson className="h-4 w-4 mr-2 text-muted-foreground" />
-            <span>Export JSON</span>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleImportCSV}>
             <Download className="h-4 w-4 mr-2 text-muted-foreground" />
             <span>Import CSV</span>
@@ -390,9 +355,7 @@ export function TestSetControls({
           onOpenChange={setIsResultHistoryDialogOpen}
           testSet={currentTestSet}
           versionIdentifier={
-            selectedVersion
-              ? `v${selectedVersion}`
-              : undefined
+            selectedVersion ? `v${selectedVersion}` : undefined
           }
         />
       )}
