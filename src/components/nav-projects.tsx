@@ -324,13 +324,21 @@ export function NavProjects() {
   return (
     <>
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-        <SidebarGroupLabel>Projects</SidebarGroupLabel>
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
           <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                className="text-muted-foreground text-xs"
+                onClick={() => setIsDialogOpen(true)}
+              >
+                <Plus />
+                <span>New Project</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
             <SortableContext
               items={projects.map((p) => p.uid)}
               strategy={verticalListSortingStrategy}
@@ -349,15 +357,6 @@ export function NavProjects() {
                 />
               ))}
             </SortableContext>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                className="text-muted-foreground text-xs"
-                onClick={() => setIsDialogOpen(true)}
-              >
-                <Plus />
-                <span>New Project</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
           </SidebarMenu>
         </DndContext>
       </SidebarGroup>
