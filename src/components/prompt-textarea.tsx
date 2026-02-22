@@ -17,6 +17,7 @@ import {
 
 import { Button } from '@/components/ui/button'
 import { Copy, Delete, RefreshCw, ImageIcon, X } from 'lucide-react'
+import { ThinkingBlock } from '@/components/thinking-block'
 
 // TODO: 编辑器考虑支持markdown https://www.blocknotejs.org/
 
@@ -32,6 +33,8 @@ export interface PromptTextareaProps {
   onChange?: (content: string) => void
   isStreaming?: boolean
   streamingContent?: string
+  reasoning?: string
+  streamingReasoning?: string
   imageUrls?: string[]
   onImageAdd?: (urls: string[]) => void
   onImageRemove?: (url: string) => void
@@ -56,6 +59,8 @@ const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProps>(({
   onChange,
   isStreaming = false,
   streamingContent = '',
+  reasoning,
+  streamingReasoning,
   imageUrls = [],
   onImageAdd,
   onImageRemove
@@ -381,6 +386,16 @@ const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProps>(({
           </TooltipProvider>
         </div>
       </div>
+      {(() => {
+        const displayReasoning = isStreaming ? streamingReasoning : reasoning;
+        return displayReasoning ? (
+          <ThinkingBlock
+            reasoning={displayReasoning}
+            defaultOpen={isStreaming}
+            className="px-3 pt-2"
+          />
+        ) : null;
+      })()}
       <textarea
         ref={finalRef}
         className="textarea w-full p-3 min-h-18 h-fit resize-none focus:outline-none custom-scrollbar"

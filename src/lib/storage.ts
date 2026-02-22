@@ -15,6 +15,7 @@ export interface Message {
   id: number;
   role: 'system' | 'user' | 'assistant';
   content: string;
+  reasoning?: string;
   image_urls?: string[]; // 存储上传图片的URL
 }
 
@@ -50,6 +51,7 @@ export interface Version {
 export interface TestResult {
   id: string;
   content: string;
+  reasoning?: string;
   timestamp: string;
   status: 'pending' | 'running' | 'completed' | 'error';
   error?: string;

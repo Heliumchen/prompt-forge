@@ -13,6 +13,7 @@ interface GenerationsSectionProps {
   isGenerating: boolean;
   generatingMessageId: number | null;
   streamingContent: string;
+  streamingReasoning: string;
   streamingMessageId: number | null;
   // Evaluation props
   selectedEvaluationProject: string;
@@ -48,6 +49,7 @@ export function GenerationsSection({
   isGenerating,
   generatingMessageId,
   streamingContent,
+  streamingReasoning,
   streamingMessageId,
   selectedEvaluationProject,
   selectedEvaluationRound,
@@ -95,6 +97,12 @@ export function GenerationsSection({
                 streamingContent={
                   streamingMessageId === message.id
                     ? streamingContent
+                    : undefined
+                }
+                reasoning={message.reasoning}
+                streamingReasoning={
+                  streamingMessageId === message.id
+                    ? streamingReasoning
                     : undefined
                 }
                 onChange={(content) =>

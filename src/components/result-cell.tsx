@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ResultDiffDialog } from "./result-diff-dialog";
 import { RatingSelect } from "./ui/rating-select";
+import { ThinkingBlock } from "./thinking-block";
 
 interface ResultCellProps {
   result?: TestResult;
@@ -152,6 +153,10 @@ export function ResultCell({
             </span>
           )}
         </div>
+
+        {result.reasoning && (
+          <ThinkingBlock reasoning={result.reasoning} />
+        )}
 
         {result.content && (
           <div className="bg-muted/50 rounded-md p-3 text-sm">

@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { LLMClient } from "@/lib/openrouter";
+import type { StreamChunkResult } from "@/lib/openrouter";
 import { toast } from "sonner";
 import { Project } from "@/lib/storage";
 import { getSecureApiKey } from "@/lib/security";
@@ -118,8 +119,8 @@ export function usePromptReview() {
           }, 5000);
         }
 
-        for await (const chunk of stream) {
-          if (chunk) {
+        for await (const chunk of stream as AsyncIterable<StreamChunkResult>) {
+          if (chunk.type === 'content' && chunk.text) {
             if (!hasReceivedContent) {
               hasReceivedContent = true;
               if (thinkingTimeout) {
@@ -131,7 +132,7 @@ export function usePromptReview() {
                 generatedText = "";
               }
             }
-            generatedText += chunk;
+            generatedText += chunk.text;
             setReviewContent(generatedText);
           }
         }

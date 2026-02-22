@@ -76,6 +76,7 @@ export interface ChatCompletionResponse {
     message: {
       role: string;
       content: string;
+      reasoning?: string;
       tool_calls?: unknown[];
     };
     finish_reason: string;

@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CheckCircle, AlertCircle, Clock } from "lucide-react";
+import { ThinkingBlock } from "./thinking-block";
 
 interface ResultDiffDialogProps {
   open: boolean;
@@ -109,6 +110,9 @@ function ResultDisplay({
         {title} ({versionId})
       </div>
       {getStatusDisplay()}
+      {result?.reasoning && (
+        <ThinkingBlock reasoning={result.reasoning} />
+      )}
       {getContentDisplay()}
     </div>
   );

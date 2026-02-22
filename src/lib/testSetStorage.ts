@@ -5,6 +5,7 @@ import { dataManager } from './data-manager';
 export interface TestResult {
   id: string;
   content: string;
+  reasoning?: string;
   timestamp: string;
   status: 'pending' | 'running' | 'completed' | 'error';
   error?: string;
@@ -105,11 +106,13 @@ export const createTestResult = (
   content: string = '',
   status: TestResult['status'] = 'pending',
   error?: string,
-  executionTime?: number
+  executionTime?: number,
+  reasoning?: string
 ): TestResult => {
   return {
     id: generateUid(),
     content,
+    reasoning,
     timestamp: new Date().toISOString(),
     status,
     error,

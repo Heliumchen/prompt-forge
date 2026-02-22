@@ -384,6 +384,7 @@ export default function Page() {
                           isGenerating={generation.isGenerating}
                           generatingMessageId={generation.generatingMessageId}
                           streamingContent={generation.streamingContent}
+                          streamingReasoning={generation.streamingReasoning}
                           streamingMessageId={generation.streamingMessageId}
                           selectedEvaluationProject={
                             evaluation.selectedEvaluationProject
