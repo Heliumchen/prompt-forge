@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { LLMClient } from "@/lib/openrouter";
+import type { StreamChunkResult } from "@/lib/openrouter";
 import { toast } from "sonner";
 import { Project } from "@/lib/storage";
 import { getSecureApiKey } from "@/lib/security";
@@ -8,6 +9,7 @@ export function useGeneration() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingMessageId, setGeneratingMessageId] = useState<number | null>(null);
   const [streamingContent, setStreamingContent] = useState<string>("");
+  const [streamingReasoning, setStreamingReasoning] = useState<string>("");
   const [streamingMessageId, setStreamingMessageId] = useState<number | null>(null);
 
   const validateGeneration = useCallback((currentProject: Project | null, selectedModel: string) => {
@@ -33,10 +35,10 @@ export function useGeneration() {
   // Helper function to safely convert messageId to number
   const safeParseMessageId = (id: unknown): number | null => {
     if (id === undefined || id === null) return null;
-    
+
     // If it's already a number, return it
     if (typeof id === 'number' && !isNaN(id)) return Math.floor(id);
-    
+
     // If it's an object, try to extract id property
     if (typeof id === 'object' && id !== null) {
       const obj = id as Record<string, unknown>;
@@ -52,13 +54,13 @@ export function useGeneration() {
         return !isNaN(parsed) ? parsed : null;
       }
     }
-    
+
     // If it's a string, try to parse it
     if (typeof id === 'string') {
       const parsed = parseInt(id, 10);
       return !isNaN(parsed) ? parsed : null;
     }
-    
+
     console.warn('Unable to parse messageId:', { id, type: typeof id });
     return null;
   };
@@ -87,7 +89,7 @@ export function useGeneration() {
 
       // Parse and validate messageId
       const parsedMessageId = safeParseMessageId(messageId);
-      
+
       if (messageId !== undefined) {
         if (parsedMessageId === null) {
           console.error('Invalid messageId provided:', { messageId, type: typeof messageId });
@@ -99,7 +101,7 @@ export function useGeneration() {
         const messageIndex = allMessages.findIndex((m) => m.id === parsedMessageId);
 
         if (messageIndex === -1) {
-          console.error(`Message with id ${parsedMessageId} not found in messages:`, 
+          console.error(`Message with id ${parsedMessageId} not found in messages:`,
             allMessages.map(m => ({ id: m.id, type: typeof m.id })));
           toast.error('未找到指定的消息，请刷新页面重试');
           return;
@@ -146,11 +148,12 @@ export function useGeneration() {
         const client = new LLMClient(apiKey);
 
         let generatedText = "";
+        let generatedReasoning = "";
         let newMessageId: number | undefined;
 
         if (parsedMessageId !== null) {
           newMessageId = parsedMessageId;
-          updateMessage(currentProject!.uid, parsedMessageId, { content: "" });
+          updateMessage(currentProject!.uid, parsedMessageId, { content: "", reasoning: undefined });
         } else {
           newMessageId = addMessage(currentProject!.uid, {
             role: "assistant",
@@ -159,12 +162,13 @@ export function useGeneration() {
         }
 
         setStreamingMessageId(newMessageId);
+        setStreamingReasoning("");
 
         const options = {
           model: selectedModel,
           stream: true,
           temperature: currentVersion.data.modelConfig?.temperature || 1.0,
-          max_tokens: currentVersion.data.modelConfig?.max_tokens || 1024,
+          max_tokens: currentVersion.data.modelConfig?.max_tokens || 4096,
           top_p: currentVersion.data.modelConfig?.top_p,
           frequency_penalty: currentVersion.data.modelConfig?.frequency_penalty,
           presence_penalty: currentVersion.data.modelConfig?.presence_penalty,
@@ -175,22 +179,30 @@ export function useGeneration() {
 
         const stream = await client.chat(messages, options);
 
-        for await (const chunk of stream) {
-          generatedText += chunk;
-          setStreamingContent(generatedText);
+        for await (const chunk of stream as AsyncIterable<StreamChunkResult>) {
+          if (chunk.type === 'reasoning') {
+            generatedReasoning += chunk.text;
+            setStreamingReasoning(generatedReasoning);
+          } else {
+            generatedText += chunk.text;
+            setStreamingContent(generatedText);
+          }
 
           if (newMessageId !== undefined) {
             updateMessage(currentProject!.uid, newMessageId, {
               content: generatedText,
+              reasoning: generatedReasoning || undefined,
             });
           }
         }
 
         setStreamingContent(generatedText);
+        setStreamingReasoning(generatedReasoning);
 
         setTimeout(() => {
           setStreamingMessageId(null);
           setStreamingContent("");
+          setStreamingReasoning("");
         }, 100);
 
         if (parsedMessageId === null) {
@@ -216,6 +228,7 @@ export function useGeneration() {
     isGenerating,
     generatingMessageId,
     streamingContent,
+    streamingReasoning,
     streamingMessageId,
     handleGenerate,
     setStreamingContent,

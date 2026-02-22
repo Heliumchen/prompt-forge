@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { LLMClient } from "@/lib/openrouter";
+import type { StreamChunkResult } from "@/lib/openrouter";
 import { toast } from "sonner";
 import { Project, Prompt, Message } from "@/lib/storage";
 import { getSecureApiKey } from "@/lib/security";
@@ -124,7 +125,7 @@ export function useEvaluation() {
               model: selectedModel,
               stream: true,
               temperature: currentVersion.data.modelConfig?.temperature || 1.0,
-              max_tokens: currentVersion.data.modelConfig?.max_tokens || 1024,
+              max_tokens: currentVersion.data.modelConfig?.max_tokens || 4096,
             };
 
             const assistantStream = await client.chat(
@@ -132,12 +133,14 @@ export function useEvaluation() {
               assistantOptions
             );
 
-            for await (const chunk of assistantStream) {
-              assistantContent += chunk;
-              setStreamingContent(assistantContent);
-              updateMessage(currentProject!.uid, assistantMessageId, {
-                content: assistantContent,
-              });
+            for await (const chunk of assistantStream as AsyncIterable<StreamChunkResult>) {
+              if (chunk.type === 'content') {
+                assistantContent += chunk.text;
+                setStreamingContent(assistantContent);
+                updateMessage(currentProject!.uid, assistantMessageId, {
+                  content: assistantContent,
+                });
+              }
             }
 
             await new Promise((resolve) => setTimeout(resolve, 500));
@@ -177,7 +180,7 @@ export function useEvaluation() {
               model: selectedModel,
               stream: true,
               temperature: currentVersion.data.modelConfig?.temperature || 1.0,
-              max_tokens: currentVersion.data.modelConfig?.max_tokens || 1024,
+              max_tokens: currentVersion.data.modelConfig?.max_tokens || 4096,
             };
 
             const userMessageId = addMessage(currentProject!.uid, {
@@ -190,12 +193,14 @@ export function useEvaluation() {
             let userContent = "";
             const userStream = await client.chat(reversedMessages, userOptions);
 
-            for await (const chunk of userStream) {
-              userContent += chunk;
-              setStreamingContent(userContent);
-              updateMessage(currentProject!.uid, userMessageId, {
-                content: userContent,
-              });
+            for await (const chunk of userStream as AsyncIterable<StreamChunkResult>) {
+              if (chunk.type === 'content') {
+                userContent += chunk.text;
+                setStreamingContent(userContent);
+                updateMessage(currentProject!.uid, userMessageId, {
+                  content: userContent,
+                });
+              }
             }
 
             await new Promise((resolve) => setTimeout(resolve, 500));

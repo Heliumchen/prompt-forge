@@ -33,6 +33,7 @@ import {
 } from "@/lib/storage";
 import { processTemplate } from "@/lib/variableUtils";
 import { LLMClient } from "@/lib/openrouter";
+import type { ChatResult } from "@/lib/openrouter";
 import { ChatMessage } from "@/lib/openrouter/types";
 import { getSecureApiKey } from "@/lib/security";
 import { useProjects } from "@/contexts/ProjectContext";
@@ -487,7 +488,7 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
       const response = await llmClient.chat(messages, {
         model: modelConfig.model,
         temperature: modelConfig.temperature || 1.0,
-        max_tokens: modelConfig.max_tokens || 1024,
+        max_tokens: modelConfig.max_tokens || 4096,
         top_p: modelConfig.top_p,
         frequency_penalty: modelConfig.frequency_penalty,
         presence_penalty: modelConfig.presence_penalty,
@@ -498,18 +499,24 @@ export const TestSetProvider: React.FC<{ children: React.ReactNode }> = ({
       });
 
       const executionTime = Date.now() - startTime;
-      
+
+      // Extract content and reasoning from response
+      const chatResult = response as ChatResult;
+      const responseContent = chatResult.content;
+      const responseReasoning = chatResult.reasoning;
+
       // Validate response
-      if (typeof response !== 'string' || response.trim().length === 0) {
+      if (!responseContent || responseContent.trim().length === 0) {
         throw new Error('Empty or invalid response from model');
       }
-      
+
       // Create completed result
       const completedResult = createTestResult(
-        response,
+        responseContent,
         'completed',
         undefined,
-        executionTime
+        executionTime,
+        responseReasoning
       );
 
       try {
