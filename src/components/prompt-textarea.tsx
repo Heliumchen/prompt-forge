@@ -22,8 +22,8 @@ import { ThinkingBlock } from '@/components/thinking-block'
 // TODO: 编辑器考虑支持markdown https://www.blocknotejs.org/
 
 export interface PromptTextareaProps {
-  role?: 'system' | 'user' | 'assistant'
-  onTypeChange?: (role: 'system' | 'user' | 'assistant') => void
+  role?: 'system' | 'user' | 'assistant' | 'tool'
+  onTypeChange?: (role: 'system' | 'user' | 'assistant' | 'tool') => void
   onDelete?: () => void
   onCopy?: () => void
   onRegenerate?: () => void
@@ -290,7 +290,7 @@ const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProps>(({
           value={role.toLowerCase()}
           disabled={isGenerating}
           onValueChange={(value) => {
-            const newRole = value as 'system' | 'user' | 'assistant';
+            const newRole = value as 'system' | 'user' | 'assistant' | 'tool';
             onTypeChange?.(newRole);
           }}
         >
@@ -301,6 +301,7 @@ const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProps>(({
             <SelectItem value="system">📌 System</SelectItem>
             <SelectItem value="user">👤 User</SelectItem>
             <SelectItem value="assistant">🤖 Assistant</SelectItem>
+            <SelectItem value="tool">🔧 Tool</SelectItem>
           </SelectContent>
         </Select>
         <div className="flex items-center gap-1 invisible group-hover/item:visible">

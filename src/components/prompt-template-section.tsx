@@ -8,7 +8,7 @@ interface PromptTemplateSectionProps {
   currentProject: Project | null;
   isGenerating: boolean;
   onValueChange: (value: string, id: number, type: "prompt") => void;
-  onTypeChange: (roleType: "system" | "user" | "assistant", id: number, type: "prompt") => void;
+  onTypeChange: (roleType: "system" | "user" | "assistant" | "tool", id: number, type: "prompt") => void;
   onCopy: (id: number, type: "prompt") => void;
   onDelete: (id: number, type: "prompt") => void;
   onImageAdd: (id: number, type: "prompt", urls: string[]) => void;

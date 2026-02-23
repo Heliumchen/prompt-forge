@@ -1,7 +1,9 @@
 // 定义数据类型
+export type MessageRole = 'system' | 'user' | 'assistant' | 'tool';
+
 export interface Prompt {
   id: number;
-  role: 'system' | 'user' | 'assistant';
+  role: MessageRole;
   content: string;
   image_urls?: string[]; // 存储上传图片的URL
 }
@@ -13,7 +15,7 @@ export interface Variable {
 
 export interface Message {
   id: number;
-  role: 'system' | 'user' | 'assistant';
+  role: MessageRole;
   content: string;
   reasoning?: string;
   image_urls?: string[]; // 存储上传图片的URL

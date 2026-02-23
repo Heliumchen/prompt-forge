@@ -187,7 +187,7 @@ export default function Page() {
     // Add imported messages
     messages.forEach((message) => {
       addMessage(currentProject.uid, {
-        role: message.role as "user" | "assistant",
+        role: message.role as "system" | "user" | "assistant" | "tool",
         content: message.content,
       });
     });

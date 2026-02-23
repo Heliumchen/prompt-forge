@@ -135,7 +135,7 @@ export function useItemHandlers() {
 
   const handleTypeChange = useCallback(
     (
-      roleType: "system" | "user" | "assistant",
+      roleType: "system" | "user" | "assistant" | "tool",
       id: number,
       type: ItemType,
       currentProject: Project | null,

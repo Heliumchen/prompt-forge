@@ -54,7 +54,7 @@ function parseMessagesJSON(jsonData: string, selectedVersion: Version): ParsedJS
     const allMessages: Array<{role: string, content: string}> = [];
 
     for (const item of parsed) {
-      if (!item || typeof item !== 'object' || !item.role || !item.content) {
+      if (!item || typeof item !== 'object' || !item.role || item.content === undefined || item.content === null) {
         return {
           messages: [],
           extractedVariables: {},
@@ -64,7 +64,9 @@ function parseMessagesJSON(jsonData: string, selectedVersion: Version): ParsedJS
         };
       }
 
-      allMessages.push({ role: item.role, content: item.content });
+      // Serialize object content (e.g., tool role with function definitions) to JSON string
+      const content = typeof item.content === 'string' ? item.content : JSON.stringify(item.content, null, 2);
+      allMessages.push({ role: item.role, content });
     }
 
     // Extract variables from selected version's prompts
@@ -84,16 +86,13 @@ function parseMessagesJSON(jsonData: string, selectedVersion: Version): ParsedJS
       content: p.content
     }));
 
-    const { extractedVariables, matchedCount } = extractVariablesFromMessages(
+    const { extractedVariables } = extractVariablesFromMessages(
       templatePrompts,
       allMessages
     );
 
-    // Remaining messages after template matching
-    const messages = allMessages.slice(matchedCount);
-
     return {
-      messages,
+      messages: allMessages,
       extractedVariables,
       allVariableNames,
       isValid: true
@@ -162,7 +161,7 @@ export function JSONImportDialog({
         <DialogHeader>
           <DialogTitle>Import JSON Messages</DialogTitle>
           <DialogDescription>
-            Import messages from JSON array. The first N messages will be matched with the template prompts in order to extract variable values. Remaining messages will be imported as conversation history.
+            Import messages from JSON array. All messages will be imported as conversation history. Variable values will be extracted by matching with template prompts if applicable.
           </DialogDescription>
         </DialogHeader>
 
@@ -233,11 +232,26 @@ export function JSONImportDialog({
               {/* Messages Summary */}
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">
-                  Conversation Messages to Import ({parsedData.messages.length} after template matching)
+                  Messages to Import ({parsedData.messages.length})
                 </div>
                 {parsedData.messages.length > 0 ? (
                   <div className="border rounded-lg p-3 max-h-40 overflow-auto space-y-2">
-                    {parsedData.messages.slice(0, 3).map((message, index) => (
+                    {/* Role counts summary */}
+                    <div className="text-xs text-muted-foreground flex flex-wrap gap-2">
+                      {Object.entries(
+                        parsedData.messages.reduce((acc, msg) => {
+                          acc[msg.role] = (acc[msg.role] || 0) + 1;
+                          return acc;
+                        }, {} as Record<string, number>)
+                      ).map(([role, count]) => (
+                        <span key={role} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted">
+                          <span className="capitalize">{role}</span>
+                          <span className="font-mono">×{count}</span>
+                        </span>
+                      ))}
+                    </div>
+                    {/* First few messages preview */}
+                    {parsedData.messages.slice(0, 5).map((message, index) => (
                       <div key={index} className="text-xs">
                         <span className="font-medium capitalize">{message.role}:</span>
                         <span className="text-muted-foreground ml-2">
@@ -248,15 +262,15 @@ export function JSONImportDialog({
                         </span>
                       </div>
                     ))}
-                    {parsedData.messages.length > 3 && (
+                    {parsedData.messages.length > 5 && (
                       <div className="text-xs text-muted-foreground">
-                        ... and {parsedData.messages.length - 3} more messages
+                        ... and {parsedData.messages.length - 5} more messages
                       </div>
                     )}
                   </div>
                 ) : (
                   <div className="text-xs text-muted-foreground">
-                    All messages matched with template (no additional conversation messages)
+                    No messages found in JSON
                   </div>
                 )}
               </div>

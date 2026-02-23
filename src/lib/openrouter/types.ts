@@ -37,7 +37,7 @@ export interface OpenRouterModelsResponse {
 }
 
 export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: 'system' | 'user' | 'assistant' | 'tool';
   content: string | Array<{
     type: 'text' | 'image_url';
     text?: string;

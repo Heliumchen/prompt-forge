@@ -168,7 +168,7 @@ export function useEvaluation() {
                     ? "assistant"
                     : m.role;
                 return {
-                  role: reversedRole as "system" | "user" | "assistant",
+                  role: reversedRole as "system" | "user" | "assistant" | "tool",
                   content: m.content,
                   image_urls: m.image_urls,
                 };

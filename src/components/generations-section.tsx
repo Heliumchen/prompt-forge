@@ -26,7 +26,7 @@ interface GenerationsSectionProps {
   onGenerate: () => void;
   onModelSettingsOpen: () => void;
   onValueChange: (value: string, id: number, type: "message") => void;
-  onTypeChange: (roleType: "system" | "user" | "assistant", id: number, type: "message") => void;
+  onTypeChange: (roleType: "system" | "user" | "assistant" | "tool", id: number, type: "message") => void;
   onCopy: (id: number, type: "message") => void;
   onDelete: (id: number, type: "message") => void;
   onRegenerate: (messageId: number) => void;

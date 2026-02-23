@@ -54,7 +54,7 @@ function parseTestSetJSON(jsonData: string, selectedVersion: Version): ParsedTes
       const allMessages: Array<{role: string, content: string}> = [];
 
       for (const [index, item] of parsed.entries()) {
-        if (!item.role || !item.content) {
+        if (!item.role || (item.content === undefined && item.content === null)) {
           return {
             testCases: [],
             isValid: false,
@@ -62,9 +62,11 @@ function parseTestSetJSON(jsonData: string, selectedVersion: Version): ParsedTes
           };
         }
 
+        // Serialize object content (e.g., tool role with function definitions) to JSON string
+        const content = typeof item.content === 'string' ? item.content : JSON.stringify(item.content, null, 2);
         allMessages.push({
           role: String(item.role),
-          content: String(item.content)
+          content
         });
       }
 
@@ -74,13 +76,13 @@ function parseTestSetJSON(jsonData: string, selectedVersion: Version): ParsedTes
         content: p.content
       }));
 
-      const { extractedVariables, matchedCount } = extractVariablesFromMessages(
+      const { extractedVariables } = extractVariablesFromMessages(
         templatePrompts,
         allMessages
       );
 
-      // Remaining messages after template matching (only user/assistant)
-      const remainingMessages = allMessages.slice(matchedCount)
+      // All messages (only user/assistant for test cases)
+      const remainingMessages = allMessages
         .filter(msg => ['user', 'assistant'].includes(msg.role))
         .map(msg => ({
           role: msg.role as 'user' | 'assistant',
