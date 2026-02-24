@@ -8,7 +8,7 @@
     "version:patch": "npm version patch --no-git-tag-version",
     "release": "node scripts/update-changelog.js && npm run version:patch && next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "test": "vitest"
   },
   "dependencies": {
@@ -37,36 +37,35 @@
     "cmdk": "^1.1.1",
     "cross-fetch": "^4.1.0",
     "date-fns": "^4.1.0",
-    "eventemitter3": "^5.0.1",
-    "lucide-react": "^0.553.0",
-    "next": "16.0.10",
+    "eventemitter3": "^5.0.4",
+    "lucide-react": "^0.575.0",
+    "next": "16.1.6",
     "next-themes": "^0.4.6",
-    "openai": "^6.8.1",
-    "react": "19.2.1",
-    "react-dom": "19.2.1",
+    "openai": "^6.22.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
     "react-markdown": "^10.1.0",
     "sonner": "^2.0.7",
-    "tailwind-merge": "^3.4.0",
+    "tailwind-merge": "^3.5.0",
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.0",
+    "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@types/node": "^24",
-    "@types/react": "19.2.4",
+    "@types/node": "^25",
+    "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "eslint": "^9",
-    "eslint-config-next": "16.0.3",
-    "jsdom": "^27.2.0",
+    "eslint-config-next": "16.1.6",
+    "jsdom": "^28.1.0",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^4.0.8"
+    "vitest": "^4.0.18"
   },
   "overrides": {
-    "@types/react": "19.2.4",
+    "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3"
   }
 }

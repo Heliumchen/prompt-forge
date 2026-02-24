@@ -35,7 +35,7 @@ const AutoTextarea = React.forwardRef<HTMLTextAreaElement, AutoTextareaProps>(
     }, [props.value, adjustHeight]);
 
     // Adjust height on input
-    const handleInput = React.useCallback((e: React.FormEvent<HTMLTextAreaElement>) => {
+    const handleInput = React.useCallback((e: React.InputEvent<HTMLTextAreaElement>) => {
       adjustHeight();
       onInput?.(e);
     }, [adjustHeight, onInput]);
